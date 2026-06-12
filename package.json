@@ -1,0 +1,19 @@
+{
+  "name": "hero-line-wars",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Hero Line Wars — Sundered Vale. A WC3-inspired lane defense strategy game.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "sim": "tsx src/sim.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^6.3.5"
+  }
+}

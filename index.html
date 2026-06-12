@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hero Line Wars — Sundered Vale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Crimson+Pro:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>⚔️</text></svg>" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ===================== MAIN MENU ===================== -->
+    <div id="screen-menu" class="screen">
+      <div class="menu-box">
+        <div class="title-crest">⚔</div>
+        <h1 class="game-title">HERO LINE WARS</h1>
+        <div class="game-subtitle">— The Sundered Vale —</div>
+        <p class="menu-flavor">
+          Two keeps. Two champions. One law: every monster you send to their gate
+          fattens your coffers — every monster they send is yours to slay.
+          Hold your line. Break theirs.
+        </p>
+
+        <div class="menu-row">
+          <span class="menu-label">Enemy Warlord</span>
+          <div class="diff-picker" id="diff-picker"></div>
+        </div>
+
+        <div class="menu-buttons">
+          <button class="btn btn-primary btn-big" id="btn-pick">⚔ &nbsp;Choose Your Champion</button>
+          <button class="btn btn-big" id="btn-random">🎲 &nbsp;Fates Decide (random heroes)</button>
+          <button class="btn btn-big" id="btn-spectate">👁 &nbsp;Watch the War (AI vs AI)</button>
+          <button class="btn btn-big btn-ghost" id="btn-howto">📜 &nbsp;How to Play</button>
+        </div>
+        <div class="menu-foot">v0.1 — every sprite, spell and sound is procedural. No assets were harmed.</div>
+      </div>
+
+      <!-- how to play modal -->
+      <div id="howto-modal" class="modal hidden">
+        <div class="modal-box">
+          <h2>The Law of the Vale</h2>
+          <div class="howto-cols">
+            <div>
+              <h3>The Loop</h3>
+              <ul>
+                <li><b>Send monsters</b> (Barracks, <kbd>B</kbd>) — they march on the <i>enemy</i> castle and permanently raise <b>your income</b> (paid every 30s).</li>
+                <li><b>Defend your lane</b> — your hero fights everything the enemy sends at you. Kills pay gold.</li>
+                <li><b>Spend gold</b>: items at the Forge (<kbd>G</kbd>), training at the War Council (<kbd>V</kbd>), Keep upgrades to unlock Tier 2 &amp; 3 monsters.</li>
+                <li>Raze the enemy castle to win.</li>
+              </ul>
+              <h3>Controls</h3>
+              <ul>
+                <li><kbd>W A S D</kbd> move · mouse aims</li>
+                <li><kbd>Q W E R</kbd>… actually <kbd>Q</kbd> <kbd>E</kbd> <kbd>F</kbd> abilities, <kbd>R</kbd> ultimate</li>
+                <li><kbd>1–6</kbd> item actives · <kbd>P</kbd> pause · <kbd>M</kbd> mute</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Wisdom</h3>
+              <ul>
+                <li>Income early beats items early — but a dead hero defends nothing.</li>
+                <li>Watch what the enemy buys. Golems shrug off magic; harpies fly over blades.</li>
+                <li>Priests, banners and necrothurges make a horde greater than its parts.</li>
+                <li>The Forge keeps secrets: hold the right pieces and they become something greater. The riddle book hints.</li>
+                <li>Falling behind grants <b>Underdog's Favor</b>. Castles below ¼ unleash arrow volleys. You are never out of it.</li>
+                <li>At minute 35 comes the <b>Twilight</b> — walls grow brittle, gates spawn faster, and the war <i>ends</i>.</li>
+              </ul>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-howto-close">To Battle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== HERO SELECT ===================== -->
+    <div id="screen-select" class="screen hidden"></div>
+
+    <!-- ===================== GAME ===================== -->
+    <div id="screen-game" class="screen hidden">
+      <div id="game-wrap">
+        <canvas id="game-canvas" width="1600" height="900"></canvas>
+        <div id="hud-top"></div>
+        <div id="hud-bottom"></div>
+        <div id="side-panel" class="hidden"></div>
+        <div id="toasts"></div>
+        <div id="pause-veil" class="hidden">
+          <div class="pause-text">⏸ PAUSED</div>
+        </div>
+      </div>
+      <div id="tooltip" class="hidden"></div>
+    </div>
+
+    <!-- ===================== END ===================== -->
+    <div id="screen-end" class="screen hidden"></div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

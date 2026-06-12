@@ -1,0 +1,105 @@
+// ---------------------------------------------------------------------------
+// The Barracks — monsters you pay to march on the enemy's castle.
+// Sending a unit PERMANENTLY raises your income. Tiers unlock with your Keep.
+// Synergies are real: priests heal, banners embolden, necrothurges recycle.
+// ---------------------------------------------------------------------------
+
+import type { UnitDef } from '../types';
+
+export const UNITS: UnitDef[] = [
+  // ------------------------------------------------------------- Tier 1
+  {
+    id: 'goblin', name: 'Goblin Cutpurse', tier: 1, cost: 15, income: 2.5,
+    hp: 60, dmg: 6, speed: 88, range: 30,
+    special: 'cutpurse', trait: 'Fast. Hits on the castle also steal 2 gold.',
+    pal: { a: '#6fae4e', b: '#3c5d2a', c: '#e3b341' },
+  },
+  {
+    id: 'skeleton', name: 'Skeleton Footman', tier: 1, cost: 22, income: 3,
+    hp: 105, dmg: 9, speed: 60, range: 30,
+    trait: 'Cheap, tireless, replaceable. The backbone of every horde.',
+    pal: { a: '#e8e4d8', b: '#9a948a', c: '#4a4440' },
+  },
+  {
+    id: 'wolf', name: 'Briarfang Wolf', tier: 1, cost: 38, income: 4.5,
+    hp: 150, dmg: 13, speed: 95, range: 32,
+    special: 'pack', trait: 'Pack hunter: +3 damage per nearby wolf (max +15).',
+    pal: { a: '#7a6a58', b: '#4a3f33', c: '#c9484e' },
+  },
+  {
+    id: 'imp', name: 'Imp Saboteur', tier: 1, cost: 50, income: 6,
+    hp: 80, dmg: 7, speed: 72, range: 28,
+    special: 'explode', trait: 'Detonates on death: 90 damage to the enemy hero and summons nearby.',
+    pal: { a: '#d14f3a', b: '#7a2820', c: '#ffb347' },
+  },
+  // ------------------------------------------------------------- Tier 2
+  {
+    id: 'ogre', name: 'Ogre Mauler', tier: 2, cost: 120, income: 10,
+    hp: 1000, dmg: 30, speed: 48, range: 44,
+    trait: 'A walking wall of meat. Soaks hero damage while the line advances.',
+    pal: { a: '#9a8255', b: '#5d4d33', c: '#6fae4e' },
+  },
+  {
+    id: 'priest', name: 'Grave Priest', tier: 2, cost: 150, income: 12,
+    hp: 380, dmg: 12, speed: 55, range: 230,
+    special: 'healer', trait: 'Mends the most wounded ally nearby (26 hp/s). Kill it first.',
+    pal: { a: '#cfc4e8', b: '#5d5470', c: '#9fe8b0' },
+  },
+  {
+    id: 'banner', name: 'Banner Wraith', tier: 2, cost: 170, income: 13,
+    hp: 420, dmg: 10, speed: 55, range: 36,
+    special: 'banner', trait: 'War-standard of the dead: nearby allies +20% damage, +15% speed.',
+    pal: { a: '#6a7a9a', b: '#2d3a52', c: '#c9484e' },
+  },
+  {
+    id: 'revenant', name: 'Frost Revenant', tier: 2, cost: 180, income: 14,
+    hp: 520, dmg: 18, speed: 52, range: 40,
+    special: 'chill', trait: 'Aura of grave-cold: the enemy hero attacks and moves 25% slower near it.',
+    pal: { a: '#a8d8e8', b: '#4a7a9a', c: '#dff6ff' },
+  },
+  {
+    id: 'harpy', name: 'Harpy Skyrender', tier: 2, cost: 160, income: 12,
+    hp: 360, dmg: 20, speed: 75, range: 250,
+    flying: true, special: 'harass', trait: 'Flies (35% of attacks miss her). Claws at the hero from above while marching.',
+    pal: { a: '#b58ad1', b: '#5d3a70', c: '#e8cba8' },
+  },
+  // ------------------------------------------------------------- Tier 3
+  {
+    id: 'golem', name: 'Stone Golem', tier: 3, cost: 400, income: 28,
+    hp: 2600, dmg: 34, speed: 40, range: 48,
+    spellResist: 0.55, trait: 'Living granite: ignores 55% of spell damage. A mage\'s nightmare.',
+    pal: { a: '#8a8a92', b: '#55555d', c: '#6de0e8' },
+  },
+  {
+    id: 'necro', name: 'Necrothurge', tier: 3, cost: 450, income: 30,
+    hp: 700, dmg: 16, speed: 50, range: 250,
+    special: 'necro', trait: 'Raises a Skeleton Footman from each nearby allied death (max 8).',
+    pal: { a: '#3d3d52', b: '#1f1f30', c: '#7dff8a' },
+  },
+  {
+    id: 'siege', name: 'Siege Juggernaut', tier: 3, cost: 550, income: 36,
+    hp: 1700, dmg: 26, speed: 42, range: 52,
+    special: 'siege', trait: 'Engine of ruin: deals 3.5× damage to castles.',
+    pal: { a: '#7a5d3a', b: '#4a3823', c: '#ff7733' },
+  },
+  {
+    id: 'wyvern', name: 'Elder Wyvern', tier: 3, cost: 500, income: 33,
+    hp: 1400, dmg: 30, speed: 60, range: 60,
+    flying: true, special: 'wyvern', trait: 'Flies. Spits acid in an arc at the hero and summons every few seconds.',
+    pal: { a: '#4e8a5d', b: '#2a4d33', c: '#c5ff7d' },
+  },
+  // ----------------------------------------------------------- Legendary
+  {
+    id: 'avatar', name: 'Avatar of Ruin', tier: 3, legendary: true, cost: 1200, income: 70,
+    hp: 5200, dmg: 90, speed: 38, range: 70,
+    spellResist: 0.28, special: 'avatar',
+    trait: 'A god of endings. Earth-shattering slams; at half health it roars the hero into flight.',
+    pal: { a: '#2b2030', b: '#13101a', c: '#ff4d4d' },
+  },
+];
+
+export const UNIT_BY_ID: Record<string, UnitDef> = Object.fromEntries(UNITS.map(u => [u.id, u]));
+
+export function bounty(def: UnitDef, raised: boolean): number {
+  return raised ? 5 : Math.ceil(def.cost * 0.45);
+}
