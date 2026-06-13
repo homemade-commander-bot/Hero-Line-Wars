@@ -14,6 +14,7 @@ import { C, DIFFICULTY, armorReduction, castlePos, fountainPos, laneCenterX, lan
 import { ABILITY_BY_ID, HERO_BY_ID, HEROES } from './data/heroes';
 import { UNIT_BY_ID, bounty } from './data/units';
 import { FORGED_ITEMS, ITEM_BY_ID, itemWorth } from './data/items';
+import { flowDir, invalidateFlow } from './flowfield';
 
 // ------------------------------------------------------------------ helpers
 
@@ -44,6 +45,11 @@ function nearestHero(g: GameState, team: TeamId, pos: Vec): HeroState | null {
     if (d0 < bd) { bd = d0; best = p.hero; }
   }
   return best;
+}
+
+function hasTower(g: GameState, lane: TeamId): boolean {
+  for (const tw of g.towers) if (tw.lane === lane) return true;
+  return false;
 }
 
 function clampToLane(team: TeamId, p: Vec, margin = 18): Vec {
@@ -167,6 +173,8 @@ export function newGame(opts: NewGameOpts): GameState {
     maxKeep: 1 as const,
     underdog: false,
     lastStand: false,
+    forgeMastery: 0,
+    forgeComplete: false,
     players: [],
   })) as [TeamState, TeamState];
 
@@ -192,6 +200,11 @@ export function newGame(opts: NewGameOpts): GameState {
     projectiles: [],
     zones: [],
     summons: [],
+    towers: [],
+    runes: [],
+    towerVersion: [0, 0],
+    nextWildAt: [12, 14],
+    nextRuneAt: C.RUNE_PERIOD,
     nextIncomeAt: C.INCOME_PERIOD,
     twilightLevel: 0,
     nextTwilightAt: C.TWILIGHT_AT,
@@ -568,7 +581,7 @@ export function tryBuyItem(g: GameState, pl: PlayerState, itemId: string, priceM
     }
     const free = h.items.findIndex(s => s === null);
     h.items[free] = { defId: f.id, readyAt: g.t + (f.proc === 'kingsguard' ? 10 : 0), counter: 0, used: false, boughtAt: g.t };
-    if (!g.discovered[pl.team].includes(f.id)) g.discovered[pl.team].push(f.id);
+    if (!g.discovered[pl.team].includes(f.id)) { g.discovered[pl.team].push(f.id); checkForgeMastery(g, pl.team); }
     emit(g, { t: 'buy', team: pl.team, itemId });
     emit(g, { t: 'forge', team: pl.team, itemId: f.id, player: pl.id });
     autoForge(g, pl); // in case it cascades into a further forge
@@ -628,7 +641,7 @@ function autoForge(g: GameState, pl: PlayerState) {
         for (const i of slots) h.items[i] = null;
         const free = h.items.findIndex(s => s === null);
         h.items[free] = { defId: f.id, readyAt: g.t + (f.proc === 'kingsguard' ? 10 : 0), counter: 0, used: false, boughtAt: g.t };
-        if (!g.discovered[pl.team].includes(f.id)) g.discovered[pl.team].push(f.id);
+        if (!g.discovered[pl.team].includes(f.id)) { g.discovered[pl.team].push(f.id); checkForgeMastery(g, pl.team); }
         emit(g, { t: 'forge', team: pl.team, itemId: f.id, player: pl.id });
         changed = true;
       }
@@ -960,6 +973,16 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         h.buffs.push(b);
         h.d = computeDerived(h);
       }
+      // Wallwright's Overclock / Reinforce: empower & refresh your towers
+      if (p.empowerTowers) {
+        for (const tw of g.towers) {
+          if (tw.player !== pl.id) continue;
+          tw.dmg *= 1 + (p.towerDmgPct ?? 0);
+          tw.range += p.towerRangePlus ?? 0;
+          tw.until += p.towerExtend ?? 0;
+          tw.hp = Math.min(tw.maxHp, tw.hp + (p.towerHeal ?? 0));
+        }
+      }
       emit(g, { t: 'impact', pos: { ...h.pos }, r: 30, theme: ab.theme, kind: 'blessing' });
       break;
     }
@@ -1068,7 +1091,58 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
       }, ab.theme);
       break;
     }
+    case 'buildTower': {
+      const count = p.count ?? 1;
+      const spread = p.r * 2 + (p.spacing ?? 0);
+      for (let i = 0; i < count; i++) {
+        const off = count > 1 ? (i - (count - 1) / 2) * spread : 0;
+        placeTower(g, pl, ab, { x: aim.x + off, y: aim.y });
+      }
+      break;
+    }
   }
+}
+
+const TOWER_KIND: Record<string, import('./types').TowerKind> = {
+  arrowspire: 'spire', flamebattery: 'flame', bulwark: 'bulwark', gluepylon: 'glue', grandbastion: 'bastion',
+};
+
+function placeTower(g: GameState, pl: PlayerState, ab: AbilityDef, aim: Vec) {
+  const p = ab.p;
+  const L = laneOf(pl.team);
+  // keep towers out of the spawn mouth and off the castle steps
+  const pos = {
+    x: clamp(aim.x, L.x0 + p.r + 4, L.x1 - p.r - 4),
+    y: clamp(aim.y, C.SPAWN_Y + 46, C.CASTLE_Y - 60),
+  };
+  // don't stack towers on top of each other
+  for (const tw of g.towers) {
+    if (tw.lane === pl.team && dist(tw.pos, pos) < tw.r + p.r - 6) {
+      pos.x += (pos.x - tw.pos.x >= 0 ? 1 : -1) * (tw.r + p.r);
+      pos.x = clamp(pos.x, L.x0 + p.r + 4, L.x1 - p.r - 4);
+    }
+  }
+  const sp = pl.hero.d.spellAmp;
+  const tw: import('./types').TowerState = {
+    id: g.nextId++,
+    kind: TOWER_KIND[ab.id] ?? 'spire',
+    lane: pl.team,
+    player: pl.id,
+    pos,
+    r: p.r,
+    hp: p.towerHp ?? 200,
+    maxHp: p.towerHp ?? 200,
+    dmg: (p.towerDmg ?? 0) * sp,
+    range: p.towerRange ?? 0,
+    attackReadyAt: 0,
+    slow: p.towerSlow ?? 0,
+    until: g.t + p.dur,
+    born: g.t,
+    theme: ab.theme,
+  };
+  g.towers.push(tw);
+  invalidateFlow(g, pl.team);
+  emit(g, { t: 'tower', team: pl.team, player: pl.id, kind: tw.kind, pos: { ...pos } });
 }
 
 function makeZone(g: GameState, pl: PlayerState, kind: ZoneKind, pos: Vec, r: number, dur: number, p: Record<string, number>, theme: { c1: string; c2: string }): Zone {
@@ -1357,6 +1431,24 @@ function updateUnits(g: GameState, dt: number) {
     const speed = def.speed * (1 + u.spdBuffPct) * slowMult;
     const dmgOut = def.dmg * (1 + u.dmgBuffPct);
 
+    // wildlife: neutral, harmless, wanders the lane until hunted or it leaves
+    if (u.wild) {
+      if (u.despawnAt !== undefined && t >= u.despawnAt) { u.hp = -1e9; continue; }
+      if (cc) continue;
+      if (u.wanderAt === undefined || t >= u.wanderAt) {
+        u.wanderAt = t + 1.4 + g.rng() * 1.6;
+        const a = g.rng() * Math.PI * 2;
+        u.wanderDir = { x: Math.cos(a), y: Math.sin(a) * 0.6 };
+      }
+      const L = laneOf(u.lane);
+      u.pos.x += (u.wanderDir!.x) * speed * dt;
+      u.pos.y += (u.wanderDir!.y) * speed * dt;
+      // keep them loosely mid-lane
+      u.pos.x = clamp(u.pos.x, L.x0 + 20, L.x1 - 20);
+      u.pos.y = clamp(u.pos.y, C.SPAWN_Y + 60, C.CASTLE_Y - 90);
+      continue;
+    }
+
     if (cc) continue;
 
     if (feared) {
@@ -1491,9 +1583,30 @@ function updateUnits(g: GameState, dt: number) {
       }
 
       const moveMult = engaged ? C.UNIT_ENGAGE_SLOW : 1;
-      u.pos.y += speed * moveMult * dt;
-      const cx = laneCenterX(u.lane);
-      if (u.pos.y > C.CASTLE_Y - 220) u.pos.x += (cx - u.pos.x) * 0.35 * dt;
+      const stepLen = speed * moveMult * dt;
+      if (g.towers.length > 0 && hasTower(g, u.lane)) {
+        // maze: follow the flow field around the towers
+        const fd = flowDir(g, u.lane, u.pos);
+        let mx = fd.x, my = fd.y;
+        // local avoidance: push out of any tower we're hugging
+        for (const tw of g.towers) {
+          if (tw.lane !== u.lane) continue;
+          const dx = u.pos.x - tw.pos.x, dy = u.pos.y - tw.pos.y;
+          const d0 = Math.hypot(dx, dy);
+          if (d0 < tw.r + 16 && d0 > 0.01) {
+            const push = (tw.r + 16 - d0) / (tw.r + 16);
+            mx += (dx / d0) * push * 1.4;
+            my += (dy / d0) * push * 1.4;
+          }
+        }
+        const ml = Math.hypot(mx, my) || 1;
+        u.pos.x += (mx / ml) * stepLen;
+        u.pos.y += (my / ml) * stepLen;
+      } else {
+        u.pos.y += stepLen;
+        const cx = laneCenterX(u.lane);
+        if (u.pos.y > C.CASTLE_Y - 220) u.pos.x += (cx - u.pos.x) * 0.35 * dt;
+      }
 
       if (u.pos.y >= C.CASTLE_Y - 22) {
         u.pos.y = C.CASTLE_Y - 22;
@@ -1525,6 +1638,61 @@ function ownerPlayerOf(g: GameState, u: UnitState): number {
   if (owner !== undefined) return owner;
   const ps = g.teams[u.owner].players;
   return ps[Math.floor(g.rng() * ps.length)].id;
+}
+
+function updateTowers(g: GameState, dt: number) {
+  const t = g.t;
+  for (const tw of g.towers) {
+    if (t >= tw.until || tw.hp <= 0) continue;
+    if (tw.dmg <= 0 || tw.range <= 0) continue;
+    if (t < tw.attackReadyAt) continue;
+    // shoot the invader nearest the gate within range
+    let tgt: UnitState | null = null;
+    let bestY = -Infinity;
+    for (const u of g.units) {
+      if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
+      if (dist(u.pos, tw.pos) > tw.range) continue;
+      if (u.pos.y > bestY) { bestY = u.pos.y; tgt = u; }
+    }
+    if (tgt) {
+      tw.attackReadyAt = t + (tw.kind === 'flame' ? 1.1 : tw.kind === 'bastion' ? 0.7 : 0.85);
+      if (tw.kind === 'flame' || tw.kind === 'bastion') {
+        // splash
+        for (const u of g.units) {
+          if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
+          if (dist(u.pos, tgt.pos) <= (tw.kind === 'bastion' ? 95 : 70)) {
+            dmgUnit(g, u, tw.dmg, 'magic', tw.lane, { killerPlayer: tw.player });
+            if (u.hp > 0 && tw.slow) applySlow(u, tw.slow, 1, t);
+          }
+        }
+        emit(g, { t: 'impact', pos: { ...tgt.pos }, r: tw.kind === 'bastion' ? 95 : 70, theme: tw.theme, kind: 'burst' });
+      } else {
+        // bolt
+        g.projectiles.push({
+          id: g.nextId++, owner: tw.lane, pos: { x: tw.pos.x, y: tw.pos.y - 20 },
+          vel: { x: 0, y: 0 }, r: 12, dmg: tw.dmg, kind: 'magic', pierce: false,
+          explodeR: 0, explodeDmg: 0, dragX: 0, slowPct: tw.slow, slowDur: tw.slow ? 1 : 0,
+          dotDps: 0, dotDur: 0, knock: 0, hitIds: [], boomerang: 0,
+          origin: { ...tw.pos }, maxDist: tw.range + 80, targetUnit: tgt.id,
+          theme: tw.theme, ignite: 0, player: tw.player,
+        });
+        // aim the bolt
+        const pr = g.projectiles[g.projectiles.length - 1];
+        const dx = tgt.pos.x - pr.pos.x, dy = tgt.pos.y - pr.pos.y;
+        const len = Math.hypot(dx, dy) || 1;
+        pr.vel = { x: (dx / len) * 620, y: (dy / len) * 620 };
+      }
+    }
+  }
+  // expire towers; invalidate the flow field of any lane that lost one
+  for (let i = g.towers.length - 1; i >= 0; i--) {
+    const tw = g.towers[i];
+    if (t >= tw.until || tw.hp <= 0) {
+      emit(g, { t: 'impact', pos: { ...tw.pos }, r: tw.r, theme: tw.theme, kind: 'blink' });
+      g.towers.splice(i, 1);
+      invalidateFlow(g, tw.lane);
+    }
+  }
 }
 
 function updateSummons(g: GameState, dt: number) {
@@ -1811,7 +1979,9 @@ function updateEconomy(g: GameState, dt: number) {
   if (g.t >= g.nextIncomeAt) {
     g.nextIncomeAt += C.INCOME_PERIOD;
     for (const pl of allPlayers(g)) {
-      const amt = Math.round(pl.income * (g.teams[pl.team].underdog ? C.UNDERDOG_INCOME : 1));
+      const ts = g.teams[pl.team];
+      const forgeMult = 1 + C.FORGE_INCOME_PER * ts.forgeMastery; // Forge-Mastery favor
+      const amt = Math.round(pl.income * (ts.underdog ? C.UNDERDOG_INCOME : 1) * forgeMult);
       pl.gold += amt;
       pl.stats.goldEarned += amt;
       emit(g, { t: 'income', team: pl.team, amount: amt, player: pl.id });
@@ -1854,6 +2024,91 @@ function updateSpawns(g: GameState) {
   }
 }
 
+// ----------------------------------------------------------- wildlife + runes
+
+function updateWildlife(g: GameState) {
+  for (const lane of [0, 1] as TeamId[]) {
+    if (g.t < g.nextWildAt[lane]) continue;
+    const wilds = g.units.filter(u => u.lane === lane && u.hp > 0 && u.wild).length;
+    const invaders = g.units.filter(u => u.lane === lane && u.hp > 0 && !u.wild).length;
+    const heroHome = g.teams[lane].players.some(p => !p.hero.dead);
+    // keep a little wildlife around to farm; lean in harder when the lane is quiet
+    if (wilds < C.WILD_MAX_PER_LANE && heroHome) {
+      const roll = g.rng();
+      const defId = roll < 0.58 ? 'gloomrat' : roll < 0.86 ? 'wisp' : 'tuskboar';
+      const L = laneOf(lane);
+      const u = spawnUnit(g, defId, (1 - lane) as TeamId, {
+        x: L.x0 + 40 + g.rng() * (L.x1 - L.x0 - 80),
+        y: C.SPAWN_Y + 120 + g.rng() * 300,
+      });
+      u.wild = true;
+      u.owner = lane; // belongs to no sender; lane defender farms it
+      u.despawnAt = g.t + C.WILD_DESPAWN;
+    }
+    // quiet lanes refresh wildlife faster, busy lanes slower
+    const base = invaders < C.WILD_QUIET_UNITS ? C.WILD_PERIOD[0] : C.WILD_PERIOD[1] + 5;
+    g.nextWildAt[lane] = g.t + base + g.rng() * 3;
+  }
+}
+
+function updateRunes(g: GameState) {
+  if (g.t >= g.nextRuneAt) {
+    g.nextRuneAt = g.t + C.RUNE_PERIOD;
+    for (const lane of [0, 1] as TeamId[]) {
+      const kindRoll = g.rng();
+      const kind = kindRoll < 0.5 ? 'bounty' : kindRoll < 0.78 ? 'haste' : 'power';
+      const L = laneOf(lane);
+      const pos = { x: laneCenterX(lane) + (g.rng() - 0.5) * (L.x1 - L.x0) * 0.5, y: C.SPAWN_Y + 200 + g.rng() * 240 };
+      g.runes.push({ id: g.nextId++, kind, lane, pos, until: g.t + C.RUNE_LIFE, born: g.t });
+      emit(g, { t: 'rune', kind, pos: { ...pos }, lane });
+    }
+  }
+  for (let i = g.runes.length - 1; i >= 0; i--) {
+    const rn = g.runes[i];
+    if (g.t >= rn.until) { g.runes.splice(i, 1); continue; }
+    // a defending hero who walks over it claims it
+    const hv = nearestHero(g, rn.lane, rn.pos);
+    if (hv && dist(hv.pos, rn.pos) < 34) {
+      const pl = playerById(g, hv.player);
+      if (rn.kind === 'bounty') {
+        const amt = C.RUNE_BOUNTY + Math.floor(g.t / 60) * 8;
+        pl.gold += amt;
+        pl.stats.goldEarned += amt;
+      } else if (rn.kind === 'haste') {
+        hv.buffs.push({ id: 'runehaste', until: g.t + 8, msPct: 0.4, asPct: 0.3, theme: 'whisperwind' });
+        hv.d = computeDerived(hv);
+      } else {
+        hv.buffs.push({ id: 'runepower', until: g.t + 10, dmgPct: 0.2, spellAmp: 0.2, theme: 'voidsight' });
+        hv.d = computeDerived(hv);
+      }
+      emit(g, { t: 'runeGet', team: rn.lane, player: hv.player, kind: rn.kind, pos: { ...rn.pos } });
+      g.runes.splice(i, 1);
+    }
+  }
+}
+
+/** Recompute a team's Forgemaster's Favor when their recipe set grows. */
+function checkForgeMastery(g: GameState, team: TeamId) {
+  const ts = g.teams[team];
+  const count = g.discovered[team].length;
+  if (count <= ts.forgeMastery) return;
+  ts.forgeMastery = count;
+  const complete = count >= FORGED_ITEMS.length;
+  emit(g, { t: 'forgeMastery', team, count, complete });
+  if (complete && !ts.forgeComplete) {
+    ts.forgeComplete = true;
+    // the Forgemaster's Favor: every hero tempered, the castle fortified
+    for (const pl of ts.players) {
+      pl.hero.bonus.str += C.FORGE_FULL_STATS;
+      pl.hero.bonus.agi += C.FORGE_FULL_STATS;
+      pl.hero.bonus.int += C.FORGE_FULL_STATS;
+      pl.hero.d = computeDerived(pl.hero);
+    }
+    ts.castleMaxHp += C.FORGE_FULL_HEAL;
+    ts.castleHp = Math.min(ts.castleMaxHp, ts.castleHp + C.FORGE_FULL_HEAL);
+  }
+}
+
 // ---------------------------------------------------------------------- step
 
 export function step(g: GameState, dt: number) {
@@ -1861,9 +2116,12 @@ export function step(g: GameState, dt: number) {
   g.t += dt;
   updateEconomy(g, dt);
   updateSpawns(g);
+  updateWildlife(g);
+  updateRunes(g);
   for (const pl of allPlayers(g)) updateHero(g, pl, dt);
   updateUnits(g, dt);
   updateSummons(g, dt);
+  updateTowers(g, dt);
   updateProjectiles(g, dt);
   updateZones(g, dt);
   updateCastles(g);

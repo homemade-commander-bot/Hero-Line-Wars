@@ -180,6 +180,7 @@ function micro(g: GameState, pl: PlayerState) {
           }
           case 'summon': aimAt({ x: cl.pos.x, y: Math.min(cl.pos.y + 60, 700) }); cast = true; break;
           case 'barrage': case 'mobileZone': case 'callDown': aimAt(cl.pos); cast = true; break;
+          case 'buildTower': aimAt({ x: laneCenterX(pl.team), y: 470 }); cast = true; break; // grand bastion mid-lane
           case 'zone': aimAt(cl.pos); cast = cl.count >= 3; break;
           default: cast = true;
         }
@@ -229,8 +230,21 @@ function micro(g: GameState, pl: PlayerState) {
         case 'buffSelf': {
           const defensive = p.heal || p.healMissPct || p.shield || p.armor || p.dodge;
           const engagedBy = units.filter(u => dist(u.pos, h.pos) < 200).length;
-          if (defensive) cast = hpPct < 0.55 || (hpPct < 0.78 && engagedBy >= 3);
+          if (p.empowerTowers) cast = g.towers.some(tw => tw.player === pl.id) && (cl.count >= 3 || hpPct < 0.6);
+          else if (defensive) cast = hpPct < 0.55 || (hpPct < 0.78 && engagedBy >= 3);
           else cast = units.filter(u => dist(u.pos, h.pos) < 380).length >= 3;
+          break;
+        }
+        case 'buildTower': {
+          // build the maze: cap towers, place them mid-lane to lengthen the path
+          const myTowers = g.towers.filter(tw => tw.player === pl.id).length;
+          if (myTowers < 7 && (cl.count >= 2 || laneVal >= 80)) {
+            // alternate sides so the path zig-zags
+            const side = (myTowers % 2) ? 0.62 : 0.38;
+            const L = laneOf(pl.team);
+            aimAt({ x: L.x0 + (L.x1 - L.x0) * side, y: 300 + (myTowers % 3) * 130 });
+            cast = true;
+          }
           break;
         }
       }

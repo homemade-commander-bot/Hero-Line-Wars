@@ -72,6 +72,28 @@ per hero — plus a fixed signature **Ultimate**. 70 abilities total; no two her
 | **Maelis the Hollow Sage** | INT · void scholar | *Event Horizon* — a black sun swallows the lane |
 | **Morrigan Thornheart** | INT · the Verdant Witch | *Garden of Teeth* — the lane grows man-high snapping jaws |
 | **Seraphine Dawnvoice** | INT · high cantor | *Judgement Choir* — pillars of dawn descend one by one down the lane |
+| **Tarvek the Wallwright** | INT · siege-engineer | *Grand Bastion* — a fortress-spire; place towers to **maze** the enemy's units |
+
+### Tarvek & the maze
+
+Tarvek's abilities raise **towers** in your own lane. Damage turrets (Arrow Spire, Flame Battery)
+shoot the marchers; blockers (Bulwark / Tar Pylons) deal little or nothing — their job is to be in
+the way. Invading units **path around your towers** (real flow-field navigation), so by placing
+blockers and turrets you can fold the lane into a winding gauntlet that drags every wave past your
+guns. Towers expire, so you actively rebuild and reshape the maze each push. *Overclock* empowers
+and refreshes everything you've built.
+
+## Things to do between waves
+
+The lane is never truly idle. **Wildlife** (Gloomrats, Vale Wisps, Tusk Boars) wanders in to farm
+for gold, and **bounty relics** drop mid-lane every ~38 seconds — walk your hero over one for gold,
+haste, or a burst of spell power.
+
+## Forgemaster's Favor
+
+Your whole warband shares a forge reward: every distinct recipe the team forges grants **+2% income**
+to everyone, and completing all ten unlocks the **Forgemaster's Favor** — +6 to every commander's
+stats and a fortified castle. Coordinate your builds.
 
 ## The Horde (14 monsters, 3 tiers)
 

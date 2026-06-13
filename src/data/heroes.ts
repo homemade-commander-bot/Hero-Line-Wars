@@ -445,9 +445,52 @@ const joruun: HeroDef = {
     85, 100, { dur: 6, count: 11, r: 600, dmg: 95, lvl: 9, smart: 1, hitR: 85, stun: 0.4 }, { c1: '#ffec8a', c2: '#2d3a52', shape: 'bolt' }),
 };
 
+// ============================================================ TARVEK ========
+const tarvek: HeroDef = {
+  id: 'tarvek',
+  name: 'Tarvek',
+  epithet: 'the Wallwright',
+  attr: 'int',
+  blurb: 'A siege-engineer who decided the best wall is the one the enemy builds for you, one wrong turn at a time. He has never lost an argument with geometry.',
+  base: { str: 18, agi: 12, int: 22 },
+  growth: { str: 1.9, agi: 1.2, int: 2.7 },
+  baseDmg: 24, atkRange: 130, atkInterval: 1.3, ms: 150,
+  weapon: 'hammer',
+  palette: { skin: '#d8b48a', main: '#4a4a3a', trim: '#e3a341', glow: '#ffcf5b', hair: '#6a5a3a' },
+  slots: [
+    [
+      ab('tarvek', 0, 'Assault', 'buildTower', 'arrowspire', 'Arrow Spire',
+        'Erect a spire that looses bolts at the deepest invader. Stack them into a gauntlet; route the foe past all of them.',
+        6, 26, { dur: 15, r: 30, towerHp: 200, towerDmg: 21, towerRange: 240, lvl: 0 }, { c1: '#ffcf5b', c2: '#4a4a3a' }),
+      ab('tarvek', 0, 'Assault', 'buildTower', 'flamebattery', 'Flame Battery',
+        'A squat turret that gouts fire in a splash. Slower, but it punishes a packed wave wherever your walls bunch it.',
+        9, 32, { dur: 14, r: 32, towerHp: 240, towerDmg: 29, towerRange: 175, lvl: 0 }, { c1: '#ff7733', c2: '#4a2a1a' }),
+    ],
+    [
+      ab('tarvek', 1, 'Control', 'buildTower', 'bulwark', 'Bulwark Pylons',
+        'Plant two cheap, sturdy pylons. They deal no damage — they exist only to be in the way. This is the maze.',
+        7, 24, { dur: 14, r: 34, towerHp: 320, towerDmg: 0, towerRange: 0, count: 2, spacing: 14 }, { c1: '#9aa7b8', c2: '#3a3f4a' }),
+      ab('tarvek', 1, 'Control', 'buildTower', 'gluepylon', 'Tar Pylon',
+        'A pylon that weeps hot tar — anything that squeezes past is mired to a crawl. Pair it with a long detour.',
+        9, 28, { dur: 13, r: 34, towerHp: 280, towerDmg: 6, towerRange: 120, towerSlow: 0.5, lvl: 0 }, { c1: '#2a2a1a', c2: '#6a5a2a' }),
+    ],
+    [
+      ab('tarvek', 2, 'Arcana', 'buffSelf', 'overclock', 'Overclock',
+        'Bang the works with a wrench: every spire you own fires harder, reaches farther, and stands a while longer.',
+        16, 30, { dur: 5, msPct: 0.2, empowerTowers: 1, towerDmgPct: 0.4, towerRangePlus: 50, towerExtend: 6 }, { c1: '#ffcf5b', c2: '#e3a341' }),
+      ab('tarvek', 2, 'Arcana', 'buffSelf', 'bracewall', 'Bracewall',
+        'Sheathe yourself in scrap-iron and reinforce your works — armor and a shield for you, fresh timbers for every tower.',
+        13, 28, { dur: 6, armor: 8, shield: 110, shieldLvl: 12, empowerTowers: 1, towerHeal: 9999, towerExtend: 4 }, { c1: '#9aa7b8', c2: '#4a4a3a' }),
+    ],
+  ],
+  ult: ab('tarvek', 3, 'Ultimate', 'buildTower', 'grandbastion', 'Grand Bastion',
+    'The masterwork: a fortress-spire wreathed in cannon-fire that flattens whole packs and chills the survivors. Build the maze; then build the wall at the end of it.',
+    72, 100, { dur: 24, r: 46, towerHp: 1200, towerDmg: 58, towerRange: 235, towerSlow: 0.3, lvl: 0 }, { c1: '#ffcf5b', c2: '#ff7733' }),
+};
+
 // ---------------------------------------------------------------------------
 
-export const HEROES: HeroDef[] = [baldric, gorvana, thrainn, joruun, sylri, vyrel, korrigan, maelis, morrigan, seraphine];
+export const HEROES: HeroDef[] = [baldric, gorvana, thrainn, joruun, tarvek, sylri, vyrel, korrigan, maelis, morrigan, seraphine];
 
 export const HERO_BY_ID: Record<string, HeroDef> = Object.fromEntries(HEROES.map(h => [h.id, h]));
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.4.0] — 2026-06-13
+
+The "maze patch": a tower-building champion with real pathfinding, lull-fillers, a viewport fix, and a forge-set team reward.
+
+### Added
+- **Tarvek the Wallwright** (11th champion, INT engineer) — a tower-building, maze-making hero. His abilities place structures in his own lane: *Arrow Spire* / *Flame Battery* (damage turrets), *Bulwark Pylons* / *Tar Pylon* (blockers that maze the path), *Overclock* / *Bracewall* (empower & refresh your towers), and ultimate *Grand Bastion* (a fortress-spire). Towers expire, so the maze is actively maintained.
+- **Flow-field pathfinding** (`flowfield.ts`): when towers stand in a lane, invading units BFS a route around them toward the gate — real mazing, lengthening the path and holding the wave in turret fire. Rebuilt only when a lane's towers change; units in a walled-off pocket fall back to a straight line so nothing ever gets permanently stuck (verified: 0 units stuck across the test, sims timeout-free).
+- **Lull-fillers** — neutral **wildlife** (Gloomrats, Vale Wisps, Tusk Boars) wanders each lane to farm for gold during downtime, and **bounty relics** drop mid-lane every ~38s granting gold, haste, or spell-power when your hero walks over them.
+- **Forgemaster's Favor** — a scaling team reward: every distinct recipe your warband forges grants the whole team +2% income; complete all 10 and every commander gains +6 to all stats and the castle is fortified by 1200. Progress shows in the Forge panel.
+- **Hero signature auras** — each champion now emits a constant themed mote drift (Gorvana's embers, Joruun's arcs, Morrigan's leaves, Maelis's rising void-motes, …) and renders ~10% larger so heroes read above the horde.
+
+### Fixed
+- **Viewport / URL bar** — the fit now uses `visualViewport` and anchors to the top, so the top HUD is never hidden behind a browser's URL bar (the reported clipping).
+
+### Balance
+- 1v1 sims (30) timeout-free, 100% in the 15–45 min window (median ~21 min) — wildlife/relic farming nudges games a touch faster. Tarvek read strong (78%) on first pass; trimmed tower damage (~15%) and durations. Hero spread remains noisy on small samples; a broader tuning pass still pending human play.
+
 ## [0.3.0] — 2026-06-13
 
 The "warbands patch": 3v3, economy fix, sell/undo, readable spells, and a layout cleanup.

@@ -97,6 +97,25 @@ export const C = {
   DT: 1 / 60,
   UNIT_ENGAGE_SLOW: 0.45, // units move at this fraction while fighting the hero
   UNIT_ATK_PERIOD: 1.0,
+
+  // towers / mazing
+  FLOW_CELL: 30, // flow-field grid resolution (px)
+
+  // wildlife — fills the lulls. Neutral creeps wander your lane; farm them for gold.
+  WILD_PERIOD: [9, 13], // seconds between wild spawns, scales down as lane empties
+  WILD_MAX_PER_LANE: 4,
+  WILD_DESPAWN: 26,
+  WILD_QUIET_UNITS: 3, // only spawn wildlife when the lane has fewer than this many invaders
+
+  // bounty relics — periodic mid-lane pickups
+  RUNE_PERIOD: 38,
+  RUNE_LIFE: 16,
+  RUNE_BOUNTY: 75, // gold for a bounty relic (+8/min elapsed)
+
+  // Forgemaster's Favor — team bonus for completing item recipes
+  FORGE_INCOME_PER: 0.02, // +2% income per distinct recipe the team has forged
+  FORGE_FULL_STATS: 6, // +N all-attributes to every hero when all recipes are made
+  FORGE_FULL_HEAL: 1200, // castle fortify on completion
 };
 
 export type Difficulty = 'squire' | 'knight' | 'warlord';

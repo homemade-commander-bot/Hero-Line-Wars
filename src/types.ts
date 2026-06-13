@@ -27,7 +27,8 @@ export type AbilityKind =
   | 'transform'   // ULT: temporary self-transformation
   | 'barrage'     // ULT: timed impacts over an area (random or smart-targeted bolts)
   | 'mobileZone'  // ULT: roaming zone that drifts toward the aim point
-  | 'callDown';   // delayed strike from the sky at the aim point (no hero movement)
+  | 'callDown'    // delayed strike from the sky at the aim point (no hero movement)
+  | 'buildTower'; // place a tower in your own lane — units must path around it
 
 export type AbilityCat = 'Assault' | 'Control' | 'Arcana' | 'Ultimate';
 
@@ -184,6 +185,8 @@ export interface UnitDef {
   name: string;
   tier: 1 | 2 | 3;
   legendary?: boolean;
+  neutral?: boolean; // wildlife — never appears in the barracks
+  bounty?: number; // explicit bounty override (wildlife)
   cost: number;
   income: number;
   hp: number;
@@ -224,6 +227,43 @@ export interface UnitState {
   state: 'march' | 'castle';
   bob: number; // render phase
   player?: number; // sending player's id (bounty steal attribution)
+  wild?: boolean; // neutral wildlife — wanders, doesn't besiege the castle
+  wanderAt?: number; // next time a wild creep repicks a heading
+  wanderDir?: Vec;
+  despawnAt?: number; // wild creeps that go unhunted eventually leave
+}
+
+// ----------------------------------------------------------------------- towers
+
+export type TowerKind = 'spire' | 'flame' | 'bulwark' | 'glue' | 'bastion';
+
+export interface TowerState {
+  id: number;
+  kind: TowerKind;
+  lane: TeamId; // the lane it stands in (== the team that built it)
+  player: number;
+  pos: Vec;
+  r: number; // blocking radius (units path around this)
+  hp: number;
+  maxHp: number;
+  dmg: number;
+  range: number;
+  attackReadyAt: number;
+  slow: number; // fraction, for glue
+  until: number;
+  born: number;
+  theme: AbilityTheme;
+}
+
+// ----------------------------------------------------------------------- runes
+
+export interface RuneState {
+  id: number;
+  kind: 'bounty' | 'haste' | 'power';
+  lane: TeamId;
+  pos: Vec;
+  until: number;
+  born: number;
 }
 
 // -------------------------------------------------------------------- summons
@@ -322,6 +362,10 @@ export type GameEvent =
   | { t: 'underdog'; team: TeamId; on: boolean }
   | { t: 'twilight'; level: number }
   | { t: 'deny'; team: TeamId; player: number; msg: string }
+  | { t: 'tower'; team: TeamId; player: number; kind: import('./types').TowerKind; pos: Vec }
+  | { t: 'rune'; kind: 'bounty' | 'haste' | 'power'; pos: Vec; lane: TeamId }
+  | { t: 'runeGet'; team: TeamId; player: number; kind: 'bounty' | 'haste' | 'power'; pos: Vec }
+  | { t: 'forgeMastery'; team: TeamId; count: number; complete: boolean }
   | { t: 'proc'; pos: Vec; itemId: string; targets?: Vec[] }
   | { t: 'win'; team: TeamId };
 
@@ -392,6 +436,8 @@ export interface TeamState {
   maxKeep: 1 | 2 | 3; // highest player tier — drives castle archers + visuals
   underdog: boolean;
   lastStand: boolean;
+  forgeMastery: number; // # of distinct forged recipes the team has made
+  forgeComplete: boolean; // all recipes forged — the Forgemaster's Favor is active
   players: PlayerState[];
 }
 
@@ -406,6 +452,11 @@ export interface GameState {
   projectiles: Projectile[];
   zones: Zone[];
   summons: SummonState[];
+  towers: TowerState[];
+  runes: RuneState[];
+  towerVersion: [number, number]; // bumped per lane when towers change → flow rebuild
+  nextWildAt: [number, number]; // next wild-creep spawn per lane
+  nextRuneAt: number;
   nextIncomeAt: number;
   twilightLevel: number;
   nextTwilightAt: number;

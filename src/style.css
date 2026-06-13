@@ -344,7 +344,13 @@ kbd {
 .si-name { font-family: var(--font-head); font-size: 12.8px; font-weight: 700; line-height: 1.1; }
 .si-cost { color: var(--gold-bright); font-size: 12.5px; font-family: var(--font-head); }
 
-.riddle-book { margin-top: 14px; background: rgba(40, 32, 18, 0.5); border: 1px solid #4a3f2a; border-radius: 10px; padding: 10px 12px; }
+.forge-mastery { margin-top: 12px; background: rgba(40, 32, 18, 0.5); border: 1px solid #4a3f2a; border-radius: 10px; padding: 9px 12px; }
+.fm-head { display: flex; justify-content: space-between; font-family: var(--font-head); font-size: 12.5px; letter-spacing: 0.08em; color: var(--gold); }
+.fm-bar { height: 8px; background: #0a0812; border-radius: 5px; overflow: hidden; margin: 5px 0 6px; }
+.fm-fill { height: 100%; background: linear-gradient(90deg, #9a6f1d, var(--gold-bright)); transition: width 0.3s ease; }
+.fm-note { font-size: 12px; color: #cfc4a8; line-height: 1.25; font-style: italic; }
+
+.riddle-book { margin-top: 12px; background: rgba(40, 32, 18, 0.5); border: 1px solid #4a3f2a; border-radius: 10px; padding: 10px 12px; }
 .riddle-book h4 { font-family: var(--font-head); color: var(--gold); font-size: 13.5px; letter-spacing: 0.1em; margin-bottom: 7px; }
 .riddle { display: flex; gap: 9px; align-items: center; margin-bottom: 7px; }
 .riddle .r-icon { width: 34px; height: 34px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: #171226; border: 1px solid #3a3450; border-radius: 7px; font-size: 17px; color: #5d5478; }

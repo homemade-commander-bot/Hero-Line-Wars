@@ -391,6 +391,36 @@ export function paintUnit(ctx: Ctx, defId: string, t: number, scale = 1, walking
       blob(ctx, 17, 2 - G.arm * 0.5, 5.4, 6.4, a);
       break;
     }
+    // ---- wildlife
+    case 'gloomrat': {
+      blob(ctx, 0, 0, 7, 4.2, a, -0.05); // body
+      blob(ctx, 8, -2, 3.6, 3, a); // head
+      plate(ctx, [[7, -5], [6, -9], [10, -6]], sh(a, -0.1)); // ear
+      ctx.fillStyle = c; circle(ctx, 9.5, -2.4, 1); ctx.fill(); // eye
+      ctx.strokeStyle = sh(a, -0.3); ctx.lineWidth = 1.4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-7, 0); ctx.quadraticCurveTo(-15, 2 + Math.sin(t * 8) * 3, -18, -2); ctx.stroke(); // tail
+      break;
+    }
+    case 'wisp': {
+      glowCircle(ctx, 0, -2, 11, a, 0.9);
+      ctx.fillStyle = c; circle(ctx, 0, -2, 3.4 + Math.sin(t * 6) * 0.6); ctx.fill();
+      for (let i = 0; i < 4; i++) {
+        const a2 = t * 3 + (i * Math.PI) / 2;
+        ctx.fillStyle = b; circle(ctx, Math.cos(a2) * 8, -2 + Math.sin(a2) * 8, 1.2); ctx.fill();
+      }
+      break;
+    }
+    case 'tuskboar': {
+      blob(ctx, 0, 0, 11, 7, a, -0.04); // bulk
+      blob(ctx, 10, 1, 5.4, 4.4, a); // head
+      plate(ctx, [[13, 0], [18, -2], [14, 3]], '#e8d8b0'); // snout
+      ctx.fillStyle = '#e8e4d8'; // tusks
+      plate(ctx, [[14, 2], [12, 6], [13, 1]], '#e8e4d8');
+      ctx.fillStyle = '#3a1a1a'; circle(ctx, 11, -1.4, 1.1); ctx.fill();
+      limb(ctx, -6, 6, -7, 11, 2.6, sh(a, -0.25)); limb(ctx, 6, 6, 7, 11, 2.6, sh(a, -0.25));
+      plate(ctx, [[-8, -4], [-3, -6], [-4, -2]], sh(a, -0.2)); // bristled back
+      break;
+    }
   }
   ctx.restore();
 }
@@ -578,7 +608,7 @@ function paintHeadgear(ctx: Ctx, heroId: string, p: { main: string; trim: string
 export function paintHero(ctx: Ctx, h: HeroState, t: number, g?: GameState) {
   const def = HERO_BY_ID[h.defId];
   const p = def.palette;
-  const scale = (h.d?.scale ?? 1) * 1.42;
+  const scale = (h.d?.scale ?? 1) * 1.55;
   const colossus = h.buffs.some(b => b.id === 'colossus');
   const channeling = !!h.channel;
   const lunge = Math.max(0, 1 - (t - h.attackAnimT) * 4);
@@ -1597,6 +1627,29 @@ export class Renderer {
           this.showBanner(`TWILIGHT ${'✦'.repeat(Math.min(6, e.level))}`, 'The walls grow brittle. The gates howl.', '#9d6df0', 2.8);
           this.shakeIt(5);
           break;
+        case 'tower':
+          this.burst({ x: e.pos.x, y: e.pos.y + 6 }, 12, '#9aa7b8', 'smoke', 2);
+          this.ring({ x: e.pos.x, y: e.pos.y + 6 }, e.kind === 'bastion' ? '#ffcf5b' : '#cfd8e8', e.kind === 'bastion' ? 4 : 2.6);
+          if (e.kind === 'bastion') this.shakeIt(4);
+          break;
+        case 'rune':
+          this.burst(e.pos, 8, e.kind === 'bounty' ? '#ffd86b' : e.kind === 'haste' ? '#7df3df' : '#c5a8ff', 'spark', 2.4);
+          break;
+        case 'runeGet': {
+          const col = e.kind === 'bounty' ? '#ffd86b' : e.kind === 'haste' ? '#7df3df' : '#c5a8ff';
+          const label = e.kind === 'bounty' ? 'BOUNTY!' : e.kind === 'haste' ? 'HASTE!' : 'POWER!';
+          this.float({ x: e.pos.x, y: e.pos.y - 20 }, label, col, 16, true);
+          this.burst(e.pos, 16, col, 'spark', 3.4);
+          this.ring(e.pos, col, 3);
+          break;
+        }
+        case 'forgeMastery':
+          if (e.complete) {
+            this.flashScreen('#e3b341', 0.3);
+            this.showBanner("THE FORGEMASTER'S FAVOR", `${e.team === 0 ? 'Dawnhold' : 'Duskreach'} forged every secret — the warband is tempered`, '#ffd86b', 3.4);
+            this.shakeIt(6);
+          }
+          break;
         case 'proc': {
           if (e.itemId === 'stormfang' && e.targets) {
             for (let i = 0; i + 1 < e.targets.length; i++) {
@@ -1670,6 +1723,8 @@ export class Renderer {
     for (const z of g.zones) this.drawZone(ctx, z, g, t);
     this.drawFountains(ctx, g, t);
     this.drawCastles(ctx, g, t);
+    this.drawRunes(ctx, g, t);
+    this.drawTowers(ctx, g, t);
 
     const sorted = [...g.units].sort((a, b) => a.pos.y - b.pos.y);
     for (const u of sorted) this.drawUnit(ctx, u, g, t);
@@ -1864,6 +1919,86 @@ export class Renderer {
         ctx.fill();
         ctx.restore();
       }
+      ctx.restore();
+    }
+  }
+
+  drawTowers(ctx: Ctx, g: GameState, t: number) {
+    for (const tw of g.towers) {
+      ctx.save();
+      ctx.translate(tw.pos.x, tw.pos.y);
+      // ground footprint (shows the blocking radius units route around)
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = tw.theme.c1;
+      ctx.beginPath(); ctx.ellipse(0, 6, tw.r, tw.r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = 'rgba(0,0,0,0.35)';
+      ctx.beginPath(); ctx.ellipse(0, 8, tw.r * 0.8, tw.r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+      const c1 = tw.theme.c1, c2 = tw.theme.c2;
+      if (tw.kind === 'bulwark') {
+        // a squat stone pylon
+        plate(ctx, [[-tw.r * 0.55, 6], [tw.r * 0.55, 6], [tw.r * 0.4, -tw.r * 0.7], [-tw.r * 0.4, -tw.r * 0.7]], '#5a5a64');
+        plate(ctx, [[-tw.r * 0.4, -tw.r * 0.7], [tw.r * 0.4, -tw.r * 0.7], [0, -tw.r]], '#6a6a74');
+        ctx.strokeStyle = c1; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.moveTo(-tw.r * 0.3, -2); ctx.lineTo(tw.r * 0.3, -2); ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else if (tw.kind === 'glue') {
+        plate(ctx, [[-tw.r * 0.5, 6], [tw.r * 0.5, 6], [tw.r * 0.32, -tw.r * 0.7], [-tw.r * 0.32, -tw.r * 0.7]], '#3a3320');
+        // dripping tar
+        ctx.fillStyle = c2;
+        for (let i = -1; i <= 1; i++) {
+          const dy = (t * 20 + i * 7) % 14;
+          circle(ctx, i * 5, -4 + dy, 1.6); ctx.fill();
+        }
+        glowCircle(ctx, 0, -tw.r * 0.7, 8, c1, 0.3);
+      } else {
+        // spire / flame / bastion — a turret with a glowing emitter
+        const big = tw.kind === 'bastion';
+        plate(ctx, [[-tw.r * 0.5, 6], [tw.r * 0.5, 6], [tw.r * 0.36, -tw.r * 0.6], [-tw.r * 0.36, -tw.r * 0.6]], '#4a4438');
+        // battlements
+        ctx.fillStyle = '#5a5448';
+        for (let i = -2; i <= 2; i++) ctx.fillRect(i * tw.r * 0.17 - 2, -tw.r * 0.72, 4, tw.r * 0.16);
+        // emitter
+        const pulse = 0.7 + Math.sin(t * 5 + tw.id) * 0.3;
+        glowCircle(ctx, 0, -tw.r * 0.6, (big ? 16 : 10) * pulse, c1, 0.8);
+        ctx.fillStyle = c1; circle(ctx, 0, -tw.r * 0.6, big ? 5 : 3.4); ctx.fill();
+        if (big) {
+          // bastion banner
+          limb(ctx, 0, -tw.r * 0.8, 0, -tw.r * 1.25, 1.6, '#3a3024');
+          plate(ctx, [[0, -tw.r * 1.25], [16 + Math.sin(t * 3) * 2, -tw.r * 1.18], [0, -tw.r * 1.08]], c2);
+        }
+        // muzzle flash when freshly fired
+        if (t - (tw.attackReadyAt - (tw.kind === 'flame' ? 1.1 : big ? 0.7 : 0.85)) < 0.12) {
+          glowCircle(ctx, 0, -tw.r * 0.6, 14, '#ffffff', 0.6);
+        }
+      }
+      // hp pip for the bastion (it can be focused)
+      if (tw.kind === 'bastion' && tw.hp < tw.maxHp) this.bar(ctx, -16, -tw.r - 6, 32, 3, tw.hp / tw.maxHp, '#ffcf5b');
+      ctx.restore();
+    }
+  }
+
+  drawRunes(ctx: Ctx, g: GameState, t: number) {
+    for (const rn of g.runes) {
+      const col = rn.kind === 'bounty' ? '#ffd86b' : rn.kind === 'haste' ? '#7df3df' : '#c5a8ff';
+      ctx.save();
+      ctx.translate(rn.pos.x, rn.pos.y);
+      const bob = Math.sin(t * 3 + rn.id) * 3;
+      ctx.translate(0, bob);
+      glowCircle(ctx, 0, 0, 18 + Math.sin(t * 4) * 3, col, 0.7);
+      // spinning rune tablet
+      ctx.save();
+      ctx.scale(Math.cos(t * 2) * 0.7 + 0.3, 1);
+      plate(ctx, [[-7, -9], [7, -9], [7, 9], [-7, 9]], sh(col, -0.3));
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.4;
+      const glyph = rn.kind === 'bounty' ? 'coin' : rn.kind === 'haste' ? 'arrow' : 'star';
+      if (glyph === 'coin') { circle(ctx, 0, 0, 3.4); ctx.stroke(); }
+      else if (glyph === 'arrow') { ctx.beginPath(); ctx.moveTo(0, 5); ctx.lineTo(0, -5); ctx.moveTo(-3, -1); ctx.lineTo(0, -5); ctx.lineTo(3, -1); ctx.stroke(); }
+      else { ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 0.8; ctx.lineTo(Math.cos(a) * 4.5, Math.sin(a) * 4.5); } ctx.closePath(); ctx.stroke(); }
+      ctx.restore();
+      // ground ring
+      ctx.strokeStyle = col; ctx.globalAlpha = 0.4 + Math.sin(t * 4) * 0.2; ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.ellipse(0, 12 - bob, 16, 6, 0, 0, Math.PI * 2); ctx.stroke();
       ctx.restore();
     }
   }
@@ -2097,6 +2232,8 @@ export class Renderer {
         }
       }
     }
+    // signature ambient aura — a constant, hero-specific mote drift
+    if (Math.random() < 0.5) this.heroAura(h, t);
     paintHero(ctx, h, t, g);
     if (h.buffs.some(b => b.stun)) {
       for (let i = 0; i < 3; i++) {
@@ -2127,6 +2264,26 @@ export class Renderer {
     ctx.fillText(String(h.level), 21, -32 * sc + 0.5);
     ctx.textBaseline = 'alphabetic';
     ctx.restore();
+  }
+
+  // a hero's constant signature aura, themed per champion
+  heroAura(h: HeroState, t: number) {
+    if (this.particles.length > 480) return;
+    const x = h.pos.x + (Math.random() - 0.5) * 26;
+    const y = h.pos.y + (Math.random() - 0.5) * 22 - 6;
+    switch (h.defId) {
+      case 'gorvana': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: -28 - Math.random() * 20, life: 0, maxLife: 0.7, size: 1.4 + Math.random() * 1.4, c: '#ff7733', kind: 'ember', grav: -20 }); break;
+      case 'baldric': this.particles.push({ x, y, vx: 0, vy: -10, life: 0, maxLife: 0.8, size: 1.4, c: '#ffe9a0', kind: 'spark', grav: 0 }); break;
+      case 'thrainn': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 10, vy: -14, life: 0, maxLife: 0.6, size: 1.3, c: '#7df3ff', kind: 'spark', grav: 30 }); break;
+      case 'joruun': if (Math.random() < 0.4) this.beam(x, y - 8, x + (Math.random() - 0.5) * 10, y + 6, '#ffec8a', 0.12, 1.4, true); break;
+      case 'tarvek': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 14, vy: -18, life: 0, maxLife: 0.5, size: 1.2, c: '#ffcf5b', kind: 'spark', grav: 60 }); break;
+      case 'sylri': this.particles.push({ x, y, vx: 0, vy: -8, life: 0, maxLife: 1.0, size: 1.2, c: '#c5a8ff', kind: 'dot', grav: 0 }); break;
+      case 'vyrel': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 30, vy: -6, life: 0, maxLife: 0.5, size: 1, c: '#aef3e7', kind: 'dot', grav: 0 }); break;
+      case 'korrigan': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 8, vy: -10, life: 0, maxLife: 0.7, size: 1.4, c: '#9acd32', kind: 'dot', grav: -8 }); break;
+      case 'maelis': this.particles.push({ x, y: y + 8, vx: (Math.random() - 0.5) * 6, vy: -2, life: 0, maxLife: 0.9, size: 1.3, c: '#9d6df0', kind: 'dot', grav: -14 }); break;
+      case 'morrigan': this.particles.push({ x, y, vx: (Math.random() - 0.5) * 14, vy: -6, life: 0, maxLife: 1.1, size: 1.4, c: '#7dff8a', kind: 'leaf', grav: 10 }); break;
+      case 'seraphine': this.particles.push({ x, y, vx: 0, vy: -16, life: 0, maxLife: 0.7, size: 1.3, c: '#fff3c4', kind: 'spark', grav: -10 }); break;
+    }
   }
 
   drawProjectile(ctx: Ctx, pr: { pos: Vec; vel: Vec; theme: { c1: string; c2: string }; boomerang: number; kind: string; r: number }, t: number) {

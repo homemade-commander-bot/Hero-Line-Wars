@@ -98,8 +98,33 @@ export const UNITS: UnitDef[] = [
   },
 ];
 
-export const UNIT_BY_ID: Record<string, UnitDef> = Object.fromEntries(UNITS.map(u => [u.id, u]));
+// ----------------------------------------------------------- Wildlife
+// Neutral creeps that wander the lanes during lulls. Farm them for gold.
+export const WILDLIFE: UnitDef[] = [
+  {
+    id: 'gloomrat', name: 'Gloomrat', tier: 1, neutral: true, cost: 0, income: 0, bounty: 14,
+    hp: 70, dmg: 0, speed: 70, range: 0,
+    trait: 'Scurries the lane. Easy gold for an idle blade.',
+    pal: { a: '#6a5a44', b: '#3a3024', c: '#c9484e' },
+  },
+  {
+    id: 'wisp', name: 'Vale Wisp', tier: 1, neutral: true, cost: 0, income: 0, bounty: 22,
+    hp: 50, dmg: 0, speed: 95, range: 0,
+    trait: 'A drifting mote of old magic. Worth more, harder to pin.',
+    pal: { a: '#9fe8d0', b: '#4a7a6a', c: '#dffff4' },
+  },
+  {
+    id: 'tuskboar', name: 'Tusk Boar', tier: 1, neutral: true, cost: 0, income: 0, bounty: 38,
+    hp: 230, dmg: 0, speed: 52, range: 0,
+    trait: 'Stout and stubborn. A meaty payday if you can drop it.',
+    pal: { a: '#7a5d44', b: '#4a3829', c: '#e8d8b0' },
+  },
+];
+
+export const UNIT_BY_ID: Record<string, UnitDef> =
+  Object.fromEntries([...UNITS, ...WILDLIFE].map(u => [u.id, u]));
 
 export function bounty(def: UnitDef, raised: boolean): number {
+  if (def.neutral) return def.bounty ?? 10;
   return raised ? 5 : Math.ceil(def.cost * 0.45);
 }

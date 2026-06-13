@@ -512,6 +512,18 @@ function renderPanel() {
     }
     body.appendChild(grid);
 
+    // team forge-mastery progress + favor
+    const done = g.discovered[me.team].length;
+    const total = FORGED_ITEMS.length;
+    const mastery = el('div', 'forge-mastery');
+    mastery.innerHTML =
+      `<div class="fm-head"><span>WARBAND FORGE-MASTERY</span><span>${done}/${total}</span></div>` +
+      `<div class="fm-bar"><div class="fm-fill" style="width:${(done / total) * 100}%"></div></div>` +
+      `<div class="fm-note">${g.teams[me.team].forgeComplete
+        ? "★ The Forgemaster's Favor is yours — every commander tempered (+6 all stats), the castle fortified."
+        : `Each recipe your warband forges grants the whole team <b>+${Math.round(C.FORGE_INCOME_PER * 100)}% income</b>. Forge all ${total} for the Forgemaster's Favor.`}</div>`;
+    body.appendChild(mastery);
+
     const book = el('div', 'riddle-book');
     book.appendChild(el('h4', undefined, "⚒ THE FORGEMASTER'S RIDDLES"));
     for (const f of FORGED_ITEMS) {

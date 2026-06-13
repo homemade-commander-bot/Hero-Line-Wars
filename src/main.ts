@@ -44,9 +44,16 @@ const keys = new Set<string>();
 let lastFit = '';
 function fitScreen() {
   const wrap = document.getElementById('game-wrap')!;
-  const scale = Math.min(innerWidth / 1600, innerHeight / 1080);
-  const ox = Math.max(0, (innerWidth - 1600 * scale) / 2);
-  const oy = Math.max(0, (innerHeight - 1080 * scale) / 2);
+  // use the VISUAL viewport when available — excludes the mobile URL bar, so
+  // the top HUD is never hidden behind browser chrome
+  const vv = window.visualViewport;
+  const vw = vv?.width ?? innerWidth;
+  const vh = vv?.height ?? innerHeight;
+  const scale = Math.min(vw / 1600, vh / 1080);
+  const ox = Math.max(0, (vw - 1600 * scale) / 2);
+  // anchor to the top (don't vertically center) so the HUD top bar always sits
+  // at the very top of the visible area, never clipped
+  const oy = Math.max(0, (vh - 1080 * scale) * 0.04);
   const tf = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) scale(${scale.toFixed(4)})`;
   if (tf !== lastFit) {
     lastFit = tf;
@@ -54,6 +61,8 @@ function fitScreen() {
   }
 }
 addEventListener('resize', fitScreen);
+window.visualViewport?.addEventListener('resize', fitScreen);
+window.visualViewport?.addEventListener('scroll', fitScreen);
 fitScreen();
 
 // ----------------------------------------------------------------- audio
@@ -310,6 +319,9 @@ function playEventSfx(events: GameEvent[], humanTeam: TeamId, humanId: number) {
       case 'heroSpawn': if (e.team === humanTeam) sfx.heroSpawn(); break;
       case 'underdog': if (e.on) sfx.underdog(); break;
       case 'twilight': sfx.twilight(); break;
+      case 'tower': if (e.team === humanTeam) sfx.forge(); break;
+      case 'runeGet': if (e.player === humanId) { e.kind === 'bounty' ? sfx.income() : sfx.levelup(); } break;
+      case 'forgeMastery': if (e.complete) sfx.victory(); break;
       case 'deny': if (e.player === humanId) ui.toast(e.msg); break;
     }
   }
