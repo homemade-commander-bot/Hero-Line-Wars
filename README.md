@@ -33,27 +33,32 @@ npm run sim      # headless AI-vs-AI balance harness (see below)
 
 ## Controls
 
-| Key | Action |
+| Input | Action |
 | --- | --- |
-| `W A S D` / arrows | Move your hero (mouse aims) |
-| `Q` `E` `F` | Abilities · `R` Ultimate (level 6) |
+| **Click the battlefield** | Move your hero (either button — WC3 style) |
+| `Q` `E` `F` | Abilities, aimed at your cursor · `R` Ultimate (level 6) |
+| `W A S D` / arrows | Direct movement (optional alternative) |
 | `1`–`6` | Item actives |
 | `B` / `G` / `V` | Barracks / Forge / War Council |
 | `P` pause · `M` mute · `Esc` | close panel / pause |
 
-## The Champions
+## The Champions (10)
 
 Each hero picks **one ability per category** (Assault / Control / Arcana) at the gate — 8 builds
-per hero — plus a fixed signature **Ultimate**. No two heroes share an ability.
+per hero — plus a fixed signature **Ultimate**. 70 abilities total; no two heroes share one.
 
 | Champion | | Ultimate |
 | --- | --- | --- |
 | **Ser Baldric the Unbroken** | STR · sword & board bastion | *Sunforged Colossus* — become a cleaving giant of living gold |
 | **Gorvana Emberhide** | STR · half-dragon war-chief | *Avatar of the Burning Wyrm* — a river of dragonfire rolls down the whole lane |
+| **Thrainn Oathhammer** | STR · last runesmith | *The Anvil of Ages* — a mountain-sized anvil falls out of the sky |
+| **Joruun Skybreaker** | STR · storm giant | *Wrath of the Open Sky* — the storm hunts the costliest monsters, bolt by bolt |
 | **Sylri Nightwhisper** | AGI · moonlit ranger | *Rain of Falling Stars* — fourteen falling stars hammer the field |
 | **Vyrel the Galewalker** | AGI · wind duelist | *Eye of the Tempest* — steer a roaming tornado with your gaze |
+| **Korrigan Vex** | AGI · king of the Undergutter | *King of a Thousand Teeth* — a living tide of rats washes down the lane |
 | **Maelis the Hollow Sage** | INT · void scholar | *Event Horizon* — a black sun swallows the lane |
 | **Morrigan Thornheart** | INT · the Verdant Witch | *Garden of Teeth* — the lane grows man-high snapping jaws |
+| **Seraphine Dawnvoice** | INT · high cantor | *Judgement Choir* — pillars of dawn descend one by one down the lane |
 
 ## The Horde (14 monsters, 3 tiers)
 
@@ -69,14 +74,18 @@ flyers dodge swordsmen, swarms drown archers.
 
 ## The Forgemaster's Riddles
 
-The Forge sells eight basic items — but hold the right pieces and the forge acts *unbidden*.
-The recipes are never listed. The riddles are:
+The Forge sells twelve basic items — but hold the right pieces and the forge acts *unbidden*.
+Ten things can be made this way. The recipes are never listed. The riddles are:
 
 > *“Sharpen the falcon's talons, and the sky itself will bite.”*
 > *“An oak heart beating in a giant's chest fears no dawn.”*
 > *“Drown an ember in the moon's own well; it remembers the sun.”*
 > *“Bind patient runes to restless glass, and your words become wildfire.”*
 > *“Teach your heels what the falcon knows.”*
+> *“Water a blade like a rose, and it learns to drink.”*
+> *“Feed a long blade a giant's appetite, and it will bite whole ranks.”*
+> *“Bind patient runes into a hungry book, and every death becomes a footnote.”*
+> *“Scale over steel — the cold remembers who struck it.”*
 > *“Three oaths — oak, rune, and giant's blood — crown the dead king anew.”*
 
 (That last one wants something already forged…)

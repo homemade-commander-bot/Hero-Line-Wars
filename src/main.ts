@@ -233,16 +233,32 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
 addEventListener('blur', () => keys.clear());
 
-addEventListener('mousemove', e => {
-  if (!S) return;
+function canvasPos(e: MouseEvent): { x: number; y: number } | null {
   const rect = canvas.getBoundingClientRect();
-  if (rect.width === 0) return;
+  if (rect.width === 0) return null;
   const x = ((e.clientX - rect.left) / rect.width) * C.W;
   const y = ((e.clientY - rect.top) / rect.height) * C.H;
-  if (!S.spectate) {
-    S.g.teams[S.playerTeam].input.aim = { x, y };
-  }
+  if (x < 0 || x > C.W || y < 0 || y > C.H) return null;
+  return { x, y };
+}
+
+addEventListener('mousemove', e => {
+  if (!S || S.spectate) return;
+  const p = canvasPos(e);
+  if (p) S.g.teams[S.playerTeam].input.aim = p;
 });
+
+// click-to-move: either button on open ground is a marching order
+canvas.addEventListener('mousedown', e => {
+  if (!S || S.spectate || S.over || S.paused) return;
+  const p = canvasPos(e);
+  if (!p) return;
+  e.preventDefault();
+  S.g.teams[S.playerTeam].input.moveTo = p;
+  S.renderer.clickMarker(p);
+  sfx.click();
+});
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 function readMoveInput() {
   if (!S || S.spectate) return;

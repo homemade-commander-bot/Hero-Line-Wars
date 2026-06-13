@@ -17,9 +17,9 @@ const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
 
 // item build orders per attribute (basics only; the forge does the rest)
 const BUILDS: Record<string, string[]> = {
-  str: ['girdle', 'ironbark', 'whetstone', 'gauntlets', 'vial', 'focus', 'girdle', 'ironbark', 'whetstone', 'gauntlets'],
-  agi: ['whetstone', 'gauntlets', 'boots', 'gauntlets', 'girdle', 'ironbark', 'whetstone', 'gauntlets', 'vial', 'focus'],
-  int: ['orb', 'vial', 'orb', 'focus', 'girdle', 'boots', 'ironbark', 'girdle', 'vial', 'focus'],
+  str: ['girdle', 'ironbark', 'whetstone', 'vial', 'longblade', 'girdle', 'plate', 'charm', 'gauntlets', 'whetstone', 'focus'],
+  agi: ['whetstone', 'gauntlets', 'boots', 'gauntlets', 'whetstone', 'vial', 'girdle', 'ironbark', 'longblade', 'girdle', 'plate'],
+  int: ['orb', 'vial', 'tome', 'focus', 'orb', 'focus', 'charm', 'plate', 'girdle', 'boots', 'vial'],
 };
 
 // send strategies by keep level
@@ -195,10 +195,10 @@ function micro(g: GameState, team: TeamState) {
           else if (emergencyY) { cast = units.some(u => dist(u.pos, h.pos) <= (p.range ?? 250)); }
           break;
         }
-        case 'zone': case 'wall': {
+        case 'zone': case 'wall': case 'callDown': case 'mobileZone': {
           if (cl.count >= 3 || cl.value >= 130 || emergencyY) {
-            // walls and roots land a touch downstream to catch the march
-            aimAt({ x: cl.pos.x, y: cl.pos.y + (ab.kind === 'wall' ? 70 : 18) });
+            // walls, roots and called strikes land a touch downstream to catch the march
+            aimAt({ x: cl.pos.x, y: cl.pos.y + (ab.kind === 'wall' ? 70 : ab.kind === 'callDown' ? 45 : 18) });
             cast = true;
           }
           break;

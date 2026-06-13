@@ -14,6 +14,7 @@ export interface ItemStats {
   regen?: number; // hp/s
   manaRegen?: number;
   cdr?: number; // cooldown reduction, fraction
+  lifesteal?: number; // fraction of attack damage returned as health
 }
 
 export type ItemProc =
@@ -22,7 +23,10 @@ export type ItemProc =
   | 'revive'     // once per match: rise at half health
   | 'ignite'     // ability hits set targets burning
   | 'galedash'   // ACTIVE: dash on use
-  | 'kingsguard'; // periodically a spectral knight joins you
+  | 'kingsguard' // periodically a spectral knight joins you
+  | 'cleave'     // melee attacks splash to nearby monsters
+  | 'manaleech'  // kills restore mana
+  | 'chillguard'; // melee attackers are slowed
 
 export interface ItemDef {
   id: string;
@@ -80,6 +84,26 @@ export const ITEMS: ItemDef[] = [
     stats: { cdr: 0.12, manaRegen: 0.8 }, desc: 'Carved with patient runes. +12% cooldown reduction, +0.8 mana/s.',
     theme: { c1: '#9d6df0', c2: '#4a3f6e', glyph: 'rune' },
   },
+  {
+    id: 'longblade', name: "Knight's Longblade", cost: 320, tier: 'basic',
+    stats: { dmg: 22 }, desc: 'Four feet of disagreement. +22 damage.',
+    theme: { c1: '#dfe6ff', c2: '#5a6a8a', glyph: 'sword' },
+  },
+  {
+    id: 'tome', name: 'Tome of the Magus', cost: 380, tier: 'basic',
+    stats: { sp: 32 }, desc: 'Heavier every time you learn what\'s in it. +32 spell power.',
+    theme: { c1: '#9d6df0', c2: '#2d2150', glyph: 'book' },
+  },
+  {
+    id: 'plate', name: 'Dwarven Warplate', cost: 350, tier: 'basic',
+    stats: { armor: 7 }, desc: 'Forged under a mountain, for people built like one. +7 armor.',
+    theme: { c1: '#bfc8d8', c2: '#5a5a6e', glyph: 'shield' },
+  },
+  {
+    id: 'charm', name: 'Wyrmscale Charm', cost: 250, tier: 'basic',
+    stats: { hp: 150, manaRegen: 0.8 }, desc: 'One scale, still warm. +150 health, +0.8 mana/s.',
+    theme: { c1: '#4e8a5d', c2: '#2a4d33', glyph: 'orb' },
+  },
   // ------------------------------------------------------------- forged
   {
     id: 'stormfang', name: 'Stormfang', cost: 0, tier: 'forged',
@@ -125,6 +149,41 @@ export const ITEMS: ItemDef[] = [
     riddle: 'Teach your heels what the falcon knows.',
     desc: 'They never quite touch the ground.',
     theme: { c1: '#7df3df', c2: '#bfd0d8', glyph: 'wingboot' },
+  },
+  {
+    id: 'bloodthorn', name: 'Bloodthorn Blade', cost: 0, tier: 'forged',
+    components: ['whetstone', 'vial'],
+    stats: { dmg: 16, regen: 2, lifesteal: 0.12 },
+    riddle: 'Water a blade like a rose, and it learns to drink.',
+    desc: 'The thorns point inward. That\'s where the blood is.',
+    theme: { c1: '#c9484e', c2: '#5d2a2a', glyph: 'sword' },
+  },
+  {
+    id: 'dragonmaw', name: 'Dragonmaw Cleaver', cost: 0, tier: 'forged',
+    components: ['longblade', 'girdle'],
+    stats: { dmg: 26, hp: 220 },
+    proc: 'cleave', procText: 'Melee attacks bite a 35% arc into everything beside your target.',
+    riddle: 'Feed a long blade a giant\'s appetite, and it will bite whole ranks.',
+    desc: 'It is always slightly open.',
+    theme: { c1: '#ff7733', c2: '#5d2a2a', glyph: 'sword' },
+  },
+  {
+    id: 'folio', name: "Archmage's Folio", cost: 0, tier: 'forged',
+    components: ['tome', 'focus'],
+    stats: { sp: 36, cdr: 0.15 },
+    proc: 'manaleech', procText: 'Every monster you kill is worth 6 mana. Every death, a footnote.',
+    riddle: 'Bind patient runes into a hungry book, and every death becomes a footnote.',
+    desc: 'The margins write themselves.',
+    theme: { c1: '#c5a8ff', c2: '#2d2150', glyph: 'book' },
+  },
+  {
+    id: 'wyrmguard', name: 'Wyrmguard Plate', cost: 0, tier: 'forged',
+    components: ['plate', 'charm'],
+    stats: { armor: 8, hp: 200 },
+    proc: 'chillguard', procText: 'Melee attackers are frostbitten: 25% slower for 1.5s.',
+    riddle: 'Scale over steel — the cold remembers who struck it.',
+    desc: 'Frost creeps from the joints when it\'s angry.',
+    theme: { c1: '#a8d8e8', c2: '#2a4d33', glyph: 'sunshield' },
   },
   {
     id: 'kingscrown', name: 'Crown of the Shattered King', cost: 0, tier: 'forged',

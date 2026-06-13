@@ -100,7 +100,7 @@ function newTeam(id: TeamId, heroId: string, loadout: string[], isAi: boolean, d
     underdog: false,
     lastStand: false,
     hero: newHero(id, heroId, loadout),
-    input: { move: { x: 0, y: 0 }, aim: { x: laneCenterX(id), y: 450 }, cast: [false, false, false, false], useItem: [false, false, false, false, false, false] },
+    input: { move: { x: 0, y: 0 }, moveTo: null, aim: { x: laneCenterX(id), y: 450 }, cast: [false, false, false, false], useItem: [false, false, false, false, false, false] },
     ai: isAi ? {
       nextThinkAt: 1 + id * 0.3,
       strategy: 'swarm',
@@ -154,13 +154,14 @@ export function computeDerived(h: HeroState, applyHpDelta = true): HeroDerived {
   const int = def.base.int + def.growth.int * lvl + h.bonus.int;
 
   let itemDmg = 0, itemArmor = 0, itemHp = 0, itemAs = 0, itemMs = 0, itemSp = 0,
-    itemRegen = 0, itemManaRegen = 0, itemCdr = 0;
+    itemRegen = 0, itemManaRegen = 0, itemCdr = 0, itemLifesteal = 0;
   for (const it of h.items) {
     if (!it) continue;
     const s = ITEM_BY_ID[it.defId].stats;
     itemDmg += s.dmg ?? 0; itemArmor += s.armor ?? 0; itemHp += s.hp ?? 0;
     itemAs += s.as ?? 0; itemMs += s.ms ?? 0; itemSp += s.sp ?? 0;
     itemRegen += s.regen ?? 0; itemManaRegen += s.manaRegen ?? 0; itemCdr += s.cdr ?? 0;
+    itemLifesteal += s.lifesteal ?? 0;
   }
 
   let bDmgPct = 0, bAsPct = 0, bMsPct = 0, bArmor = 0, bSpellAmp = 0, bDodge = 0,
@@ -189,7 +190,7 @@ export function computeDerived(h: HeroState, applyHpDelta = true): HeroDerived {
     ms: def.ms * (1 + itemMs + bMsPct),
     range: def.atkRange,
     dodge: Math.min(0.6, bDodge),
-    lifesteal: bLifesteal,
+    lifesteal: bLifesteal + itemLifesteal,
     cdr: Math.min(0.4, itemCdr),
     scale,
   };
@@ -238,7 +239,7 @@ export function dmgUnit(g: GameState, u: UnitState, raw: number, kind: 'phys' | 
   if (!o.silent) emit(g, { t: 'dmg', pos: { ...u.pos }, amount, kind, target: 'unit', team: srcTeam });
   if (u.hp <= 0) {
     u.hp = -1e9;
-    killUnit(g, u, srcTeam, o.noBounty ?? false);
+    killUnit(g, u, srcTeam, o.noBounty ?? false, o.fromHero);
   }
   return amount;
 }
@@ -255,9 +256,18 @@ export function applySlow(u: UnitState, pct: number, dur: number, t: number) {
   }
 }
 
-function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: boolean) {
+function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: boolean, killerHero?: HeroState) {
   const def = UNIT_BY_ID[u.defId];
   const defender = g.teams[u.lane];
+  // Archmage's Folio: every death is a footnote
+  if (killerHero && !killerHero.dead) {
+    for (const it of killerHero.items) {
+      if (it && ITEM_BY_ID[it.defId].proc === 'manaleech') {
+        killerHero.mana = Math.min(killerHero.d.maxMana, killerHero.mana + 6);
+        break;
+      }
+    }
+  }
   // bounty + xp always pay the defending team — a survived push is a payday
   if (!noBounty) {
     const b = bounty(def, u.raised);
@@ -277,6 +287,15 @@ function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: bool
       if (s.owner === u.lane && dist(s.pos, u.pos) < 95) dmgSummon(g, s, 90, u.owner);
     }
     emit(g, { t: 'impact', pos: { ...u.pos }, r: 95, theme: { c1: '#ff5e2b', c2: '#ffb347' }, kind: 'explode' });
+  }
+  // Plaguemonger: rot is contagious — dots jump to nearby monsters
+  if (u.dots.length > 0 && !defender.hero.dead && defender.hero.buffs.some(b => b.plagueSpread)) {
+    for (const v of g.units) {
+      if (v.hp > 0 && v !== u && v.lane === u.lane && dist(v.pos, u.pos) < 135) {
+        for (const d0 of u.dots) addDot(v, d0.dps, Math.max(0.8, d0.until - g.t), g.t);
+      }
+    }
+    emit(g, { t: 'impact', pos: { ...u.pos }, r: 135, theme: { c1: '#9acd32', c2: '#4a5d23' }, kind: 'plague' });
   }
   // Necrothurge: a nearby allied corpse becomes a fresh skeleton
   if (!u.raised) {
@@ -328,6 +347,15 @@ export function dmgHero(g: GameState, team: TeamState, raw: number, kind: 'phys'
     let reflect = 0;
     for (const b of h.buffs) reflect += b.reflect ?? 0;
     if (reflect > 0) dmgUnit(g, srcUnit, raw * reflect, 'magic', team.id, { silent: true });
+    // Wyrmguard Plate: the cold remembers who struck it
+    if (srcUnit.hp > 0 && UNIT_BY_ID[srcUnit.defId].range < 80) {
+      for (const it of h.items) {
+        if (it && ITEM_BY_ID[it.defId].proc === 'chillguard') {
+          applySlow(srcUnit, 0.25, 1.5, g.t);
+          break;
+        }
+      }
+    }
   }
   if (amount <= 0) return;
   h.hp -= amount;
@@ -548,6 +576,7 @@ function spawnUnit(g: GameState, defId: string, owner: TeamId, pos: Vec | null, 
     hp: def.hp,
     maxHp: def.hp,
     slowUntil: 0, slowPct: 0, ccUntil: 0, airborneUntil: 0, fearUntil: 0, confuseUntil: 0,
+    missUntil: 0, disarmUntil: 0,
     dots: [],
     dmgBuffPct: 0, spdBuffPct: 0,
     attackReadyAt: 0,
@@ -677,6 +706,7 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
         if (p.slow) applySlow(u, p.slow, p.slowDur ?? 2, t);
         if (p.fear) u.fearUntil = Math.max(u.fearUntil, t + p.fear);
         if (p.air) { u.airborneUntil = t + p.air; u.ccUntil = Math.max(u.ccUntil, t + p.air); }
+        if (p.disarm) u.disarmUntil = Math.max(u.disarmUntil, t + p.disarm);
         if (p.dot) addDot(u, p.dot, p.dotDur ?? 3, t);
       }
       emit(g, { t: 'impact', pos: { ...h.pos }, r: p.r, theme: ab.theme, kind: 'nova' });
@@ -695,14 +725,18 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
           const t0 = clamp(((u.pos.x - from.x) * (to.x - from.x) + (u.pos.y - from.y) * (to.y - from.y)) / (reach * reach || 1), 0, 1);
           const px = from.x + (to.x - from.x) * t0, py = from.y + (to.y - from.y) * t0;
           if (Math.hypot(u.pos.x - px, u.pos.y - py) <= p.width / 2 + 14) {
-            dmgUnit(g, u, dmg, 'magic', team.id, { fromHero: h, isAbility: true });
+            const execute = p.execute && u.hp / u.maxHp < 0.35 ? 1 + p.execute : 1;
+            dmgUnit(g, u, dmg * execute, 'magic', team.id, { fromHero: h, isAbility: true });
           }
         }
         emit(g, { t: 'impact', pos: from, r: 0, theme: ab.theme, kind: 'dashline' });
         emit(g, { t: 'impact', pos: { ...to }, r: 40, theme: ab.theme, kind: 'dashend' });
       } else {
         for (const u of foes()) {
-          if (dist(to, u.pos) <= p.r) dmgUnit(g, u, dmg, 'magic', team.id, { fromHero: h, isAbility: true });
+          if (dist(to, u.pos) <= p.r) {
+            dmgUnit(g, u, dmg, 'magic', team.id, { fromHero: h, isAbility: true });
+            if (p.stun && u.hp > 0) u.ccUntil = Math.max(u.ccUntil, t + p.stun);
+          }
         }
         if (p.zoneDps) {
           makeZone(g, team.id, 'burn', { ...to }, p.zoneR, p.zoneDur, { dps: p.zoneDps * h.d.spellAmp }, ab.theme);
@@ -738,6 +772,9 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
           dragX: p.drag ?? 0,
           slowPct: p.slow ?? 0,
           slowDur: p.slowDur ?? 0,
+          dotDps: (p.dot ?? 0) * h.d.spellAmp,
+          dotDur: p.dotDur ?? 0,
+          knock: p.knock ?? 0,
           hitIds: [],
           boomerang: p.boomerang ? 1 : 0,
           origin: { ...h.pos },
@@ -768,6 +805,8 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
         if (p.echo) b.echoSpell = true;
         if (p.spellAmp) b.spellAmp = p.spellAmp;
         if (p.blinkStrike) b.blinkStrike = true;
+        if (p.plague) b.plagueSpread = true;
+        if (p.lifesteal) b.lifesteal = p.lifesteal;
         if (p.auraDps) { b.auraDps = (p.auraDps + (p.auraLvl ?? 0) * h.level) * h.d.spellAmp; b.auraR = p.auraR; }
         if (p.drainDps) { b.drainDps = (p.drainDps + (p.drainLvl ?? 0) * h.level) * h.d.spellAmp; b.drainR = p.drainR; }
         h.buffs = h.buffs.filter(x => x.id !== ab.id);
@@ -820,6 +859,18 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
         kind = 'spore'; zp.dps = (p.dps ?? 0) * h.d.spellAmp;
         for (const u of foes()) if (dist(aim, u.pos) <= p.r) dmgUnit(g, u, dmg, 'magic', team.id, { fromHero: h, isAbility: true });
       }
+      else if (p.blind) {
+        kind = 'smog'; zp.blind = 1; zp.dps = (p.dps ?? 0) * h.d.spellAmp;
+        if (p.dmg) {
+          for (const u of foes()) {
+            if (dist(aim, u.pos) <= p.r) {
+              dmgUnit(g, u, dmg, 'magic', team.id, { fromHero: h, isAbility: true });
+              if (u.hp > 0) u.missUntil = Math.max(u.missUntil, t + (p.blindDur ?? 2));
+            }
+          }
+        }
+      }
+      else if (p.heal) { kind = 'sanctify'; zp.heal = p.heal + (p.healLvl ?? 0) * h.level; zp.slow = p.slow ?? 0; }
       else { kind = 'gravity'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; }
       const dur = kind === 'collapse' ? p.delay : (p.dur ?? 3);
       makeZone(g, team.id, kind, { ...aim }, p.r, dur, zp, ab.theme);
@@ -827,7 +878,7 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
     }
     case 'beam': {
       h.channel = { ability: ab.id, until: t + p.dur, startY: C.SPAWN_Y };
-      makeZone(g, team.id, 'beamfire', { x: laneCenterX(lane), y: C.SPAWN_Y }, p.width, p.dur, {
+      makeZone(g, team.id, ab.theme.shape === 'rats' ? 'rattide' : 'beamfire', { x: laneCenterX(lane), y: C.SPAWN_Y }, p.width, p.dur, {
         dps: p.dps * h.d.spellAmp + h.level * 4,
         width: p.width,
         igniteDps: p.igniteDps * h.d.spellAmp,
@@ -850,7 +901,15 @@ function execAbility(g: GameState, team: TeamState, h: HeroState, ab: AbilityDef
     case 'barrage': {
       makeZone(g, team.id, 'starfall', { ...aim }, p.r, p.dur, {
         dmg: dmg, slow: p.slow ?? 0, slowDur: p.slowDur ?? 1.5,
-        interval: p.dur / p.count,
+        interval: p.dur / p.count, count: p.count,
+        smart: p.smart ?? 0, sweep: p.sweep ?? 0, hitR: p.hitR ?? 78, stun: p.stun ?? 0,
+      }, ab.theme);
+      break;
+    }
+    case 'callDown': {
+      makeZone(g, team.id, 'anvil', { ...aim }, p.r, p.delay, {
+        dmg, stun: p.stun ?? 0,
+        fieldDur: p.fieldDur ?? 0, fieldSlow: p.fieldSlow ?? 0, fieldDps: (p.fieldDps ?? 0) * h.d.spellAmp,
       }, ab.theme);
       break;
     }
@@ -993,18 +1052,28 @@ function updateHero(g: GameState, team: TeamState, dt: number) {
     }
   }
 
-  // movement
+  // movement: keyboard vector overrides click orders; otherwise walk to moveTo
   if (!stunned) {
     let mx = team.input.move.x, my = team.input.move.y;
+    if (Math.hypot(mx, my) > 0.01) team.input.moveTo = null;
+    else if (team.input.moveTo) {
+      const mt = team.input.moveTo;
+      const dx = mt.x - h.pos.x, dy = mt.y - h.pos.y;
+      const d0 = Math.hypot(dx, dy);
+      if (d0 < 8) team.input.moveTo = null;
+      else { mx = dx / d0; my = dy / d0; }
+    }
     if (feared) {
       const dx = fp.x - h.pos.x, dy = fp.y - h.pos.y;
       const len = Math.hypot(dx, dy) || 1;
       mx = dx / len; my = dy / len;
+      team.input.moveTo = null;
     }
     const len = Math.hypot(mx, my);
     if (len > 0.01) {
       const ms = h.d.ms * (chilled ? 0.75 : 1);
-      h.pos = clampToLane(team.id, { x: h.pos.x + (mx / len) * ms * dt, y: h.pos.y + (my / len) * ms * dt });
+      const step = Math.min(ms * dt, team.input.moveTo ? Math.hypot(team.input.moveTo.x - h.pos.x, team.input.moveTo.y - h.pos.y) : ms * dt);
+      h.pos = clampToLane(team.id, { x: h.pos.x + (mx / len) * step, y: h.pos.y + (my / len) * step });
       if (Math.abs(mx) > 0.1) h.facing = mx > 0 ? 1 : -1;
     }
   }
@@ -1040,7 +1109,7 @@ function updateHero(g: GameState, team: TeamState, dt: number) {
             id: g.nextId++, owner: team.id, pos: { x: h.pos.x, y: h.pos.y - 18 },
             vel: { x: (dx / len) * 900, y: (dy / len) * 900 },
             r: 14, dmg, kind: 'phys', pierce: false, explodeR: 0, explodeDmg: 0,
-            dragX: 0, slowPct: 0, slowDur: 0, hitIds: [], boomerang: 0,
+            dragX: 0, slowPct: 0, slowDur: 0, dotDps: 0, dotDur: 0, knock: 0, hitIds: [], boomerang: 0,
             origin: { ...h.pos }, maxDist: h.d.range + 140, targetUnit: target.id,
             theme: { c1: heroDef(h).palette.glow, c2: '#ffffff' }, ignite: 0,
           });
@@ -1057,15 +1126,26 @@ function updateHero(g: GameState, team: TeamState, dt: number) {
         } else {
           dmgUnit(g, target, dmg, 'phys', team.id, { fromHero: h });
         }
-        heroOnHitProcs(g, team, h, target);
+        heroOnHitProcs(g, team, h, target, dmg);
       }
     }
   }
 }
 
-function heroOnHitProcs(g: GameState, team: TeamState, h: HeroState, target: UnitState) {
+function heroOnHitProcs(g: GameState, team: TeamState, h: HeroState, target: UnitState, dmg: number) {
   for (const it of h.items) {
     if (!it) continue;
+    // Dragonmaw Cleaver: melee bites an arc (the colossus cleave supersedes it)
+    if (ITEM_BY_ID[it.defId].proc === 'cleave' && h.d.range <= 200 && !(h.d as any).cleaveArc) {
+      const angle = Math.atan2(target.pos.y - h.pos.y, target.pos.x - h.pos.x);
+      for (const u of g.units) {
+        if (u.lane !== team.id || u.hp <= 0 || u.id === target.id) continue;
+        if (dist(h.pos, u.pos) > h.d.range + 40) continue;
+        let da = Math.abs(Math.atan2(u.pos.y - h.pos.y, u.pos.x - h.pos.x) - angle);
+        if (da > Math.PI) da = 2 * Math.PI - da;
+        if (da <= 0.85) dmgUnit(g, u, dmg * 0.35, 'phys', team.id, { fromHero: h, silent: true });
+      }
+    }
     if (ITEM_BY_ID[it.defId].proc === 'chain') {
       it.counter++;
       if (it.counter >= 4) {
@@ -1124,6 +1204,8 @@ function updateUnits(g: GameState, dt: number) {
     const cc = t < u.ccUntil || t < u.airborneUntil;
     const feared = t < u.fearUntil;
     const confused = t < u.confuseUntil;
+    const disarmed = t < u.disarmUntil;
+    const blinded = t < u.missUntil;
     const slowMult = t < u.slowUntil ? 1 - u.slowPct : 1;
     const speed = def.speed * (1 + u.spdBuffPct) * slowMult;
     const dmgOut = def.dmg * (1 + u.dmgBuffPct);
@@ -1151,9 +1233,9 @@ function updateUnits(g: GameState, dt: number) {
           const l0 = Math.hypot(dx, dy) || 1;
           u.pos.x += (dx / l0) * speed * dt;
           u.pos.y += (dy / l0) * speed * dt;
-        } else if (t >= u.attackReadyAt) {
+        } else if (!disarmed && t >= u.attackReadyAt) {
           u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
-          dmgUnit(g, tgt, dmgOut, 'phys', u.lane);
+          if (!blinded) dmgUnit(g, tgt, dmgOut, 'phys', u.lane);
         }
         continue;
       }
@@ -1220,9 +1302,9 @@ function updateUnits(g: GameState, dt: number) {
       if (tauntTarget) {
         engaged = true;
         if (inAtkRange(tauntTarget.pos)) {
-          if (t >= u.attackReadyAt) {
+          if (!disarmed && t >= u.attackReadyAt) {
             u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
-            dmgSummon(g, tauntTarget, dmgOut, u.owner);
+            if (!blinded) dmgSummon(g, tauntTarget, dmgOut, u.owner);
           }
         } else {
           const dx = tauntTarget.pos.x - u.pos.x, dy = tauntTarget.pos.y - u.pos.y;
@@ -1239,16 +1321,18 @@ function updateUnits(g: GameState, dt: number) {
         }
         if (blockTarget) {
           engaged = true;
-          if (t >= u.attackReadyAt) {
+          if (!disarmed && t >= u.attackReadyAt) {
             u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
-            dmgSummon(g, blockTarget, dmgOut, u.owner);
+            if (!blinded) dmgSummon(g, blockTarget, dmgOut, u.owner);
           }
-        } else if (!hero.dead && inAtkRange(hero.pos, def.special === 'harass' ? 0 : 14)) {
+        } else if (!hero.dead && !disarmed && inAtkRange(hero.pos, def.special === 'harass' ? 0 : 14)) {
           engaged = def.special !== 'harass'; // harpies strafe at full speed
           if (t >= u.attackReadyAt) {
             u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
-            dmgHero(g, defender, dmgOut, 'phys', u);
-            if (def.special === 'harass') emit(g, { t: 'impact', pos: { ...hero.pos }, r: 22, theme: { c1: '#b58ad1', c2: '#5d3a70' }, kind: 'claw' });
+            if (!blinded) {
+              dmgHero(g, defender, dmgOut, 'phys', u);
+              if (def.special === 'harass') emit(g, { t: 'impact', pos: { ...hero.pos }, r: 22, theme: { c1: '#b58ad1', c2: '#5d3a70' }, kind: 'claw' });
+            }
           }
         }
       }
@@ -1267,7 +1351,7 @@ function updateUnits(g: GameState, dt: number) {
       }
     } else {
       // hammering the gate
-      if (t >= u.attackReadyAt) {
+      if (!disarmed && !blinded && t >= u.attackReadyAt) {
         u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
         let mult = def.special === 'siege' ? 3.5 : 1;
         mult *= C.CASTLE_DMG_BASE + C.TWILIGHT_CASTLE_DMG * g.twilightLevel; // siege wins wars; twilight makes walls brittle
@@ -1350,6 +1434,12 @@ function updateProjectiles(g: GameState, dt: number) {
       pr.hitIds.push(u.id);
       dmgUnit(g, u, pr.dmg, pr.kind, pr.owner, { fromHero: hero, isAbility: pr.kind === 'magic' });
       if (pr.slowPct && u.hp > 0) applySlow(u, pr.slowPct, pr.slowDur, t);
+      if (pr.dotDps && u.hp > 0) addDot(u, pr.dotDps, pr.dotDur, t);
+      if (pr.knock && u.hp > 0) {
+        const sp = Math.hypot(pr.vel.x, pr.vel.y) || 1;
+        u.pos.x += (pr.vel.x / sp) * pr.knock;
+        u.pos.y += (pr.vel.y / sp) * pr.knock;
+      }
       if (pr.dragX && u.hp > 0) {
         const dirx = hero.pos.x - u.pos.x, diry = hero.pos.y - u.pos.y;
         const l0 = Math.hypot(dirx, diry) || 1;
@@ -1382,6 +1472,19 @@ function updateZones(g: GameState, dt: number) {
         }
         emit(g, { t: 'impact', pos: { ...z.pos }, r: z.r, theme: z.theme, kind: 'collapse' });
       }
+      if (z.kind === 'anvil') {
+        // the sky delivers
+        for (const u of g.units) {
+          if (u.lane === z.owner && u.hp > 0 && dist(u.pos, z.pos) <= z.r) {
+            dmgUnit(g, u, z.p.dmg, 'magic', z.owner);
+            if (u.hp > 0 && z.p.stun) u.ccUntil = Math.max(u.ccUntil, g.t + z.p.stun);
+          }
+        }
+        emit(g, { t: 'impact', pos: { ...z.pos }, r: z.r, theme: z.theme, kind: 'anvilhit' });
+        if (z.p.fieldDur) {
+          makeZone(g, z.owner, 'gravity', { ...z.pos }, z.r * 0.95, z.p.fieldDur, { slow: z.p.fieldSlow ?? 0.3, dps: z.p.fieldDps ?? 0 }, z.theme);
+        }
+      }
       if (z.kind === 'blackhole' && z.p.burst) {
         for (const u of g.units) {
           if (u.lane === z.owner && u.hp > 0 && dist(u.pos, z.pos) <= z.r * 1.2) {
@@ -1405,7 +1508,7 @@ function updateZones(g: GameState, dt: number) {
         z.pos.y = clamp(z.pos.y, C.SPAWN_Y, C.CASTLE_Y);
       }
     }
-    if (z.kind === 'beamfire') {
+    if (z.kind === 'beamfire' || z.kind === 'rattide') {
       const progress = clamp((t - z.born) / z.p.dur, 0, 1);
       z.pos.y = C.SPAWN_Y + (C.CASTLE_Y - 60 - C.SPAWN_Y) * progress;
     }
@@ -1418,7 +1521,7 @@ function updateZones(g: GameState, dt: number) {
       if (z.kind === 'wall') {
         inside = Math.abs(u.pos.y - z.pos.y) < 30 && Math.abs(u.pos.x - z.pos.x) < z.p.len / 2;
         if (inside && def.flying) inside = false; // the gale parts for wings
-      } else if (z.kind === 'beamfire') {
+      } else if (z.kind === 'beamfire' || z.kind === 'rattide') {
         inside = Math.abs(u.pos.y - z.pos.y) < z.p.width;
       } else {
         inside = dist(u.pos, z.pos) <= z.r;
@@ -1427,6 +1530,7 @@ function updateZones(g: GameState, dt: number) {
       if (z.p.dps) dmgUnit(g, u, z.p.dps * dt, 'magic', z.owner, { silent: true });
       if (u.hp <= 0) continue;
       if (z.p.slow) applySlow(u, z.p.slow, 0.3, t);
+      if (z.p.blind) u.missUntil = Math.max(u.missUntil, t + 0.4);
       if (z.p.pull) {
         const dx = z.pos.x - u.pos.x, dy = z.pos.y - u.pos.y;
         const l0 = Math.hypot(dx, dy) || 1;
@@ -1434,7 +1538,7 @@ function updateZones(g: GameState, dt: number) {
         u.pos.x += (dx / l0) * pull;
         u.pos.y += (dy / l0) * pull;
       }
-      if (z.kind === 'beamfire' && z.p.igniteDps) addDot(u, z.p.igniteDps, z.p.igniteDur, t);
+      if ((z.kind === 'beamfire' || z.kind === 'rattide') && z.p.igniteDps) addDot(u, z.p.igniteDps, z.p.igniteDur, t);
     }
 
     // one-shot applications
@@ -1459,16 +1563,41 @@ function updateZones(g: GameState, dt: number) {
     // ticking specials
     if (z.kind === 'starfall' && t >= z.nextTick) {
       z.nextTick = t + z.p.interval;
-      const a = g.rng() * Math.PI * 2;
-      const rr = Math.sqrt(g.rng()) * z.r;
-      const ip = { x: z.pos.x + Math.cos(a) * rr, y: z.pos.y + Math.sin(a) * rr };
-      for (const u of g.units) {
-        if (u.lane === z.owner && u.hp > 0 && dist(u.pos, ip) <= 78) {
-          dmgUnit(g, u, z.p.dmg, 'magic', z.owner);
-          if (u.hp > 0 && z.p.slow) applySlow(u, z.p.slow, z.p.slowDur, t);
+      z.p.i = (z.p.i ?? 0) + 1;
+      let ip: Vec | null = null;
+      if (z.p.smart) {
+        // the sky picks its own targets: the costliest monster anywhere in the lane
+        let best: UnitState | null = null;
+        for (const u of g.units) {
+          if (u.lane !== z.owner || u.hp <= 0) continue;
+          if (!best || UNIT_BY_ID[u.defId].cost > UNIT_BY_ID[best.defId].cost) best = u;
         }
+        if (best) ip = { ...best.pos };
+      } else if (z.p.sweep) {
+        // pillars march down the lane in order
+        const L = laneOf(z.owner);
+        const frac = (z.p.i - 1) / Math.max(1, (z.p.count ?? 8) - 1);
+        ip = {
+          x: laneCenterX(z.owner) + ((z.p.i % 2) ? -1 : 1) * (L.x1 - L.x0) * 0.17,
+          y: C.SPAWN_Y + 50 + (C.CASTLE_Y - 130 - C.SPAWN_Y) * frac,
+        };
+      } else {
+        const a = g.rng() * Math.PI * 2;
+        const rr = Math.sqrt(g.rng()) * z.r;
+        ip = { x: z.pos.x + Math.cos(a) * rr, y: z.pos.y + Math.sin(a) * rr };
       }
-      emit(g, { t: 'impact', pos: ip, r: 78, theme: z.theme, kind: 'star' });
+      if (ip) {
+        const hitR = z.p.hitR ?? 78;
+        for (const u of g.units) {
+          if (u.lane === z.owner && u.hp > 0 && dist(u.pos, ip) <= hitR) {
+            dmgUnit(g, u, z.p.dmg, 'magic', z.owner);
+            if (u.hp > 0 && z.p.slow) applySlow(u, z.p.slow, z.p.slowDur, t);
+            if (u.hp > 0 && z.p.stun) u.ccUntil = Math.max(u.ccUntil, t + z.p.stun);
+          }
+        }
+        const kind = z.theme.shape === 'bolt' ? 'bolt' : z.theme.shape === 'pillar' ? 'pillar' : 'star';
+        emit(g, { t: 'impact', pos: ip, r: hitR, theme: z.theme, kind });
+      }
     }
     if (z.kind === 'banner') {
       const team = g.teams[z.owner];
@@ -1478,6 +1607,10 @@ function updateZones(g: GameState, dt: number) {
         if (ex) ex.until = t + 0.4;
         else { h.buffs.push({ id: 'bannerarmor', until: t + 0.4, armor: z.p.armor, theme: 'banner' }); h.d = computeDerived(h); }
       }
+    }
+    if (z.kind === 'sanctify') {
+      const h = g.teams[z.owner].hero;
+      if (!h.dead && dist(h.pos, z.pos) <= z.r) healHero(h, z.p.heal * dt);
     }
   }
   g.zones = g.zones.filter(z => t < z.until);

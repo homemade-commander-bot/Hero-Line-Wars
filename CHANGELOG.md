@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.2.0] — 2026-06-12
+
+The "late-90s patch": art direction, controls, and content overhaul.
+
+### Changed
+- **Click-to-move**: click anywhere on the battlefield (either button) to order your hero there, with a WC3-style click marker; abilities aim at the cursor. WASD kept as an alternative (`src/main.ts`, `src/engine.ts`).
+- **Complete art rewrite** (`src/render.ts`): outlined 3-tone-shaded sprites with walk cycles for all 14 monsters and 10 heroes (hero-specific headgear: plumed helms, horns, halos, rat-ears); painterly terrain — mottled dawn/dusk biomes, dirt roads with cobbles and worn ruts, a glowing magma chasm, plank bridge, scattered props (rocks, shrooms, bones, dead trees), runestone gate sentinels, drifting mist; castles rebuilt with brick courses, portcullis gates, conical-roofed towers, emblem banners and damage states; additive-glow magic, jagged lightning, light-pillar impacts; subtle UI bevels.
+
+### Added
+- **4 new champions** (10 total, 70 unique abilities): Thrainn Oathhammer (STR runesmith — sky-anvil callDown ult), Joruun Skybreaker (STR storm giant — smart-targeting bolt storm), Korrigan Vex (AGI plague assassin — rat-tide ult, contagion mechanics), Seraphine Dawnvoice (INT light cantor — blind, sanctified ground, sweeping light pillars).
+- New combat mechanics: blind (attacks miss), disarm, execute damage, dot-spreading plague, knockback projectiles, delayed sky-strikes, smart/sweeping barrages, self-healing consecrated ground.
+- **8 new items** (12 basics + 10 forged): Knight's Longblade, Tome of the Magus, Dwarven Warplate, Wyrmscale Charm; forged — Bloodthorn Blade (lifesteal), Dragonmaw Cleaver (melee cleave), Archmage's Folio (mana per kill), Wyrmguard Plate (chills attackers).
+- AI plays all new content (build orders, callDown/mobileZone cast heuristics).
+
+### Fixed
+- AI economy stall: item purchases and keep savings starved the send budget; sends now take their cut first (`src/ai.ts`).
+- Screen scaling now recomputes every frame with explicit translate+scale (was fragile flex+transform centering).
+- HUD top-center refs (gold/income/clock) were never wired, crashing per-frame updates.
+
+### Balance
+- 30-match mirror sim: 100% in the 15–45 min window, median ~27 min, no timeouts. Hero winrates within 33–75% on small samples (n=2–9); Baldric buffed, Vyrel trimmed. Expect a tuning pass after human playtesting of the 4 new kits.
+
 ## [0.1.0] — 2026-06-12
 
 First playable release.

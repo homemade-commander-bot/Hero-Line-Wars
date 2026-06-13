@@ -25,8 +25,9 @@ export type AbilityKind =
   | 'wall'        // flat zone perpendicular to the lane: heavy slow + chip damage
   | 'beam'        // ULT: channeled wave sweeping the whole lane
   | 'transform'   // ULT: temporary self-transformation
-  | 'barrage'     // ULT: timed random impacts over a large area
-  | 'mobileZone'; // ULT: roaming zone that drifts toward the aim point
+  | 'barrage'     // ULT: timed impacts over an area (random or smart-targeted bolts)
+  | 'mobileZone'  // ULT: roaming zone that drifts toward the aim point
+  | 'callDown';   // delayed strike from the sky at the aim point (no hero movement)
 
 export type AbilityCat = 'Assault' | 'Control' | 'Arcana' | 'Ultimate';
 
@@ -72,7 +73,7 @@ export interface HeroDef {
   atkRange: number;
   atkInterval: number; // seconds per swing before attack speed
   ms: number; // move speed px/s
-  weapon: 'sword' | 'axes' | 'bow' | 'blades' | 'orb' | 'staff';
+  weapon: 'sword' | 'axes' | 'bow' | 'blades' | 'orb' | 'staff' | 'hammer' | 'censer' | 'fists';
   palette: HeroPalette;
   slots: [AbilityDef[], AbilityDef[], AbilityDef[]]; // 2 choices per slot
   ult: AbilityDef;
@@ -99,6 +100,7 @@ export interface Buff {
   cleaveArc?: number; // attacks hit all units in arc (radians), e.g. colossus
   scale?: number; // visual size multiplier
   blinkStrike?: boolean; // attacks teleport hero to target
+  plagueSpread?: boolean; // units dying with dots pass them to neighbors
   auraDps?: number; // burn aura around hero
   auraR?: number;
   drainDps?: number; // life drain aura (heals hero)
@@ -207,6 +209,8 @@ export interface UnitState {
   airborneUntil: number;
   fearUntil: number;
   confuseUntil: number;
+  missUntil: number; // blinded: attacks fail
+  disarmUntil: number; // cannot attack (still marches)
   dots: { dps: number; until: number }[];
   dmgBuffPct: number; // from banner aura (recomputed)
   spdBuffPct: number;
@@ -254,6 +258,9 @@ export interface Projectile {
   dragX: number; // pull hit units this many px toward hero x (briarlash)
   slowPct: number;
   slowDur: number;
+  dotDps: number; // poison on hit
+  dotDur: number;
+  knock: number; // shove hit units along the projectile's direction
   hitIds: number[];
   boomerang: 0 | 1 | 2; // 0 no, 1 outbound, 2 returning
   origin: Vec;
@@ -267,7 +274,8 @@ export interface Projectile {
 
 export type ZoneKind =
   | 'burn' | 'gravity' | 'root' | 'pollen' | 'banner' | 'spore'
-  | 'collapse' | 'wall' | 'tempest' | 'blackhole' | 'starfall' | 'beamfire';
+  | 'collapse' | 'wall' | 'tempest' | 'blackhole' | 'starfall' | 'beamfire'
+  | 'anvil' | 'sanctify' | 'smog' | 'rattide';
 
 export interface Zone {
   id: number;
@@ -313,7 +321,8 @@ export type GameEvent =
 // ---------------------------------------------------------------------- input
 
 export interface TeamInput {
-  move: Vec; // -1..1 each axis
+  move: Vec; // -1..1 each axis (keyboard fallback; overrides moveTo while held)
+  moveTo: Vec | null; // click-to-move order; engine walks the hero there
   aim: Vec; // map coords
   cast: boolean[]; // len 4, edge-triggered (consumed by engine)
   useItem: boolean[]; // len 6

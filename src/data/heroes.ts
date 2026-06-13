@@ -23,8 +23,8 @@ const baldric: HeroDef = {
   attr: 'str',
   blurb: 'Last knight of a fallen order. His shield has outlived three kingdoms, and he intends for it to outlive a fourth.',
   base: { str: 24, agi: 14, int: 14 },
-  growth: { str: 2.7, agi: 1.4, int: 1.4 },
-  baseDmg: 27, atkRange: 95, atkInterval: 1.25, ms: 150,
+  growth: { str: 2.85, agi: 1.4, int: 1.4 },
+  baseDmg: 29, atkRange: 95, atkInterval: 1.25, ms: 150,
   weapon: 'sword',
   palette: { skin: '#e8b88a', main: '#8d99b8', trim: '#e3b341', glow: '#ffd86b', hair: '#b9852f' },
   slots: [
@@ -160,7 +160,7 @@ const vyrel: HeroDef = {
     [
       ab('vyrel', 0, 'Assault', 'leapSlam', 'zephyrslash', 'Zephyr Slash',
         'Become the wind: dash through the line, blades out. Everything along the path is cut.',
-        8, 24, { dash: 310, dmg: 80, lvl: 10, line: 1, width: 75, r: 0 }, { c1: '#7df3df', c2: '#ffffff' }),
+        8, 24, { dash: 310, dmg: 76, lvl: 9, line: 1, width: 75, r: 0 }, { c1: '#7df3df', c2: '#ffffff' }),
       ab('vyrel', 0, 'Assault', 'nova', 'cycloneedge', 'Cyclone Edge',
         'Spin into a ring of blades — a circle of cuts no shield can face all at once.',
         8, 26, { dmg: 74, lvl: 9, r: 165 }, { c1: '#aef3e7', c2: '#1f6f6b' }),
@@ -273,9 +273,181 @@ const morrigan: HeroDef = {
     85, 100, { count: 3, dur: 11, hp: 320, dmg: 68, range: 130, speed: 0 }, { c1: '#7dff8a', c2: '#e85fb0', shape: 'snapper' }),
 };
 
+// ============================================================ THRAINN =======
+const thrainn: HeroDef = {
+  id: 'thrainn',
+  name: 'Thrainn',
+  epithet: 'Oathhammer',
+  attr: 'str',
+  blurb: 'Last runesmith of the Under-Forge. He carries the hammer that built the mountain — and the grudge that emptied it.',
+  base: { str: 26, agi: 12, int: 14 },
+  growth: { str: 2.9, agi: 1.2, int: 1.5 },
+  baseDmg: 29, atkRange: 90, atkInterval: 1.45, ms: 145,
+  weapon: 'hammer',
+  palette: { skin: '#e0a47a', main: '#6e5a3a', trim: '#6de0e8', glow: '#7df3ff', hair: '#d14f2a' },
+  slots: [
+    [
+      ab('thrainn', 0, 'Assault', 'leapSlam', 'anvilfall', 'Anvilfall',
+        'A short leap, a long fall. The hammer lands like a verdict, stunning everything around the dent.',
+        10, 30, { dash: 230, dmg: 82, lvl: 10, r: 140, stun: 0.9 }, { c1: '#7df3ff', c2: '#6e5a3a' }),
+      ab('thrainn', 0, 'Assault', 'projectile', 'hammerwave', 'Runic Hammerwave',
+        'Slam the road and send a wave of rune-force rolling up the lane, battering monsters backward.',
+        8, 26, { dmg: 64, lvl: 9, speed: 380, r: 34, pierce: 1, knock: 55 }, { c1: '#6de0e8', c2: '#3a4a6e' }),
+    ],
+    [
+      ab('thrainn', 1, 'Control', 'zone', 'chains', 'Chains of Khaz',
+        'Rune-chains erupt from the stone and hold the circle fast. The mountain does not let go quickly.',
+        12, 32, { r: 150, root: 2.0, dps: 12, dur: 3 }, { c1: '#7df3ff', c2: '#5a5a6e' }),
+      ab('thrainn', 1, 'Control', 'wall', 'seismicrift', 'Seismic Rift',
+        'Crack the lane open. What tries to cross the fissure does so slowly, and bleeding.',
+        13, 30, { len: 240, dur: 4.5, slow: 0.55, dps: 11 }, { c1: '#e0a47a', c2: '#6e5a3a' }),
+    ],
+    [
+      ab('thrainn', 2, 'Arcana', 'buffSelf', 'runeward', 'Runeward',
+        'The old defensive runes flare awake — a shield of light and a skin of stone.',
+        12, 30, { dur: 5, shield: 120, shieldLvl: 15, armor: 7 }, { c1: '#7df3ff', c2: '#6e5a3a' }),
+      ab('thrainn', 2, 'Arcana', 'buffSelf', 'forgeheart', 'Forgeheart',
+        'Stoke the furnace behind the ribs: wounds close and the hammer falls heavier.',
+        13, 28, { heal: 70, healLvl: 10, dur: 5, dmgPct: 0.25 }, { c1: '#ff8c42', c2: '#6e5a3a' }),
+    ],
+  ],
+  ult: ab('thrainn', 3, 'Ultimate', 'callDown', 'anvilofages', 'The Anvil of Ages',
+    'Thrainn names a spot and the Under-Forge answers: a mountain-sized anvil falls out of the sky, flattening and stunning the line, leaving a field of grinding runes.',
+    80, 95, { r: 175, delay: 1.2, dmg: 300, lvl: 14, stun: 1.6, fieldDur: 4, fieldSlow: 0.4, fieldDps: 30 }, { c1: '#7df3ff', c2: '#2a3a4e' }),
+};
+
+// =========================================================== SERAPHINE ======
+const seraphine: HeroDef = {
+  id: 'seraphine',
+  name: 'Seraphine',
+  epithet: 'Dawnvoice',
+  attr: 'int',
+  blurb: 'High cantor of a cathedral that no longer exists. The hymns survived her congregation. They are not gentle hymns.',
+  base: { str: 14, agi: 13, int: 26 },
+  growth: { str: 1.5, agi: 1.3, int: 3.0 },
+  baseDmg: 20, atkRange: 400, atkInterval: 1.3, ms: 150,
+  weapon: 'censer',
+  palette: { skin: '#f2d4b0', main: '#f2ead8', trim: '#e3b341', glow: '#fff3c4', hair: '#9a5d2a' },
+  slots: [
+    [
+      ab('seraphine', 0, 'Assault', 'projectile', 'aurumlance', 'Lance of Aurum',
+        'A spear of compressed dawn, sung straight through the line.',
+        7, 24, { dmg: 84, lvl: 10, speed: 760, r: 20, pierce: 1 }, { c1: '#fff3c4', c2: '#e3b341' }),
+      ab('seraphine', 0, 'Assault', 'zone', 'censerburst', 'Censer Burst',
+        'Hurl the burning censer: holy smoke sears the circle and leaves monsters swinging blind.',
+        9, 28, { r: 140, dmg: 62, lvl: 8, blind: 1, blindDur: 2.2, dps: 10, dur: 2.5 }, { c1: '#fff3c4', c2: '#9a5d2a' }),
+    ],
+    [
+      ab('seraphine', 1, 'Control', 'zone', 'choirchains', 'Choir of Chains',
+        'A hymn with hooks in it. Everything in the circle drags its feet against the harmony.',
+        12, 30, { r: 160, dur: 3.5, slow: 0.55, dps: 18, lvl: 3 }, { c1: '#e3b341', c2: '#f2ead8' }),
+      ab('seraphine', 1, 'Control', 'zone', 'sanctified', 'Sanctified Ground',
+        'Consecrate the road: enemies wade against the light while it knits her wounds shut.',
+        13, 32, { r: 165, dur: 5, slow: 0.35, heal: 28, healLvl: 3 }, { c1: '#fff3c4', c2: '#7db8ff' }),
+    ],
+    [
+      ab('seraphine', 2, 'Arcana', 'buffSelf', 'benediction', 'Benediction',
+        'A verse for herself, for once — health restored and a choir-shield against what comes next.',
+        12, 30, { heal: 80, healLvl: 12, dur: 4, shield: 90, shieldLvl: 12 }, { c1: '#fff3c4', c2: '#e3b341' }),
+      ab('seraphine', 2, 'Arcana', 'buffSelf', 'litany', 'Litany of Zeal',
+        'The fast hymn. The dangerous one. Spells bite deeper and the censer swings double-time.',
+        14, 26, { dur: 6, asPct: 0.35, spellAmp: 0.25 }, { c1: '#e3b341', c2: '#9a5d2a' }),
+    ],
+  ],
+  ult: ab('seraphine', 3, 'Ultimate', 'barrage', 'judgement', 'Judgement Choir',
+    'Seraphine sings the verse that ended the cathedral: pillars of dawn descend one by one down the entire lane, each a held note made lethal.',
+    85, 105, { dur: 4.2, count: 9, r: 600, dmg: 105, lvl: 9, sweep: 1, hitR: 95, slow: 0.3, slowDur: 1.4 }, { c1: '#fff3c4', c2: '#e3b341', shape: 'pillar' }),
+};
+
+// ============================================================ KORRIGAN ======
+const korrigan: HeroDef = {
+  id: 'korrigan',
+  name: 'Korrigan',
+  epithet: 'Vex of the Undergutter',
+  attr: 'agi',
+  blurb: 'The sewers under the Vale have a king. He has knives, a crown of teeth, and ten thousand loyal subjects with tails.',
+  base: { str: 14, agi: 26, int: 13 },
+  growth: { str: 1.4, agi: 3.0, int: 1.3 },
+  baseDmg: 22, atkRange: 115, atkInterval: 0.9, ms: 170,
+  weapon: 'blades',
+  palette: { skin: '#b8a88a', main: '#3d4a2a', trim: '#9acd32', glow: '#b8e35c', hair: '#2a2a20' },
+  slots: [
+    [
+      ab('korrigan', 0, 'Assault', 'projectile', 'festeringfan', 'Festering Fan',
+        'A fan of gutter-knives, each kissed with something that keeps working after the cut.',
+        8, 26, { dmg: 48, lvl: 7, speed: 600, r: 18, count: 3, dot: 14, dotDur: 3.5 }, { c1: '#b8e35c', c2: '#3d4a2a' }),
+      ab('korrigan', 0, 'Assault', 'leapSlam', 'gutterlunge', 'Gutter Lunge',
+        'A rat-quick dash through the line — the wounded are opened to the bone.',
+        9, 26, { dash: 290, dmg: 66, lvl: 9, line: 1, width: 65, execute: 0.9 }, { c1: '#9acd32', c2: '#2a2a20' }),
+    ],
+    [
+      ab('korrigan', 1, 'Control', 'mobileZone', 'ratswarm', 'Rat Swarm',
+        'Whistle up a knee-high tide of subjects that follows your gaze, gnawing and tangling.',
+        14, 32, { dur: 5, r: 95, dps: 22, pull: 0, drift: 120 }, { c1: '#8a7a5d', c2: '#3d4a2a' }),
+      ab('korrigan', 1, 'Control', 'zone', 'chokingsmog', 'Choking Smog',
+        'A bottle of the Undergutter\'s finest air. Monsters in the cloud swing at memories.',
+        13, 30, { r: 150, dur: 3.5, blind: 1, dps: 8 }, { c1: '#6a7a5d', c2: '#3d4a2a' }),
+    ],
+    [
+      ab('korrigan', 2, 'Arcana', 'buffSelf', 'verminskin', 'Verminskin',
+        'Move like something that has survived a thousand boots: faster, and half the blows find nothing.',
+        12, 26, { dur: 5, msPct: 0.4, dodge: 0.3 }, { c1: '#b8e35c', c2: '#2a2a20' }),
+      ab('korrigan', 2, 'Arcana', 'buffSelf', 'plaguemonger', 'Plaguemonger',
+        'For a while, his poisons are ambitious — anything that dies rotting passes the rot along.',
+        14, 30, { dur: 7, plague: 1, dmgPct: 0.12 }, { c1: '#9acd32', c2: '#4a5d23' }),
+    ],
+  ],
+  ult: ab('korrigan', 3, 'Ultimate', 'beam', 'thousandteeth', 'King of a Thousand Teeth',
+    'Korrigan raises his crown and the Undergutter empties: a living tide of rats washes down the whole lane, gnawing everything above ankle height.',
+    85, 100, { dur: 4.2, dps: 190, width: 85, igniteDps: 18, igniteDur: 3 }, { c1: '#8a7a5d', c2: '#3d4a2a', shape: 'rats' }),
+};
+
+// ============================================================= JORUUN =======
+const joruun: HeroDef = {
+  id: 'joruun',
+  name: 'Joruun',
+  epithet: 'Skybreaker',
+  attr: 'str',
+  blurb: 'A storm giant who lost a bet with the sky and must carry its weather until he wins it back. He is trying very hard to win it back.',
+  base: { str: 25, agi: 12, int: 16 },
+  growth: { str: 2.8, agi: 1.2, int: 1.8 },
+  baseDmg: 30, atkRange: 105, atkInterval: 1.4, ms: 148,
+  weapon: 'fists',
+  palette: { skin: '#8aa8c4', main: '#2d3a52', trim: '#ffe9a0', glow: '#ffec8a', hair: '#dfe6ff' },
+  slots: [
+    [
+      ab('joruun', 0, 'Assault', 'targetStun', 'thunderfist', 'Thunderfist',
+        'One punch, with the sky behind it. The biggest thing in reach learns about lightning.',
+        9, 26, { dmg: 105, lvl: 13, stun: 1.0, range: 230, strongest: 1 }, { c1: '#ffec8a', c2: '#2d3a52' }),
+      ab('joruun', 0, 'Assault', 'projectile', 'stormhurl', 'Stormhurl',
+        'Tear a boulder from the road, wrap it in lightning, and bowl it through the line.',
+        8, 28, { dmg: 70, lvl: 9, speed: 460, r: 30, pierce: 0, explodeR: 110, explodeDmg: 50 }, { c1: '#ffe9a0', c2: '#5a6a8a' }),
+    ],
+    [
+      ab('joruun', 1, 'Control', 'zone', 'staticfield', 'Static Field',
+        'Ground a stormcloud. Everything inside crackles, slows, and regrets its choice of road.',
+        12, 32, { r: 160, dur: 4, slow: 0.45, dps: 22, lvl: 3 }, { c1: '#ffec8a', c2: '#2d3a52' }),
+      ab('joruun', 1, 'Control', 'nova', 'galeclap', 'Galeclap',
+        'Clap once. The thunderhead knocks the weapons out of every hand around him.',
+        11, 30, { dmg: 42, lvl: 5, r: 175, knock: 60, disarm: 2.2 }, { c1: '#dfe6ff', c2: '#8aa8c4' }),
+    ],
+    [
+      ab('joruun', 2, 'Arcana', 'buffSelf', 'chargedhide', 'Charged Hide',
+        'His skin hums with stored voltage — attackers taste it back, and his fists fall faster.',
+        13, 28, { dur: 6, reflect: 0.4, asPct: 0.3 }, { c1: '#ffec8a', c2: '#8aa8c4' }),
+      ab('joruun', 2, 'Arcana', 'buffSelf', 'stormheart', 'Stormheart',
+        'Swallow a little of the storm he carries. It is not good for him. It is very good for him.',
+        13, 24, { heal: 85, healLvl: 11, manaGain: 30, dur: 0 }, { c1: '#dfe6ff', c2: '#2d3a52' }),
+    ],
+  ],
+  ult: ab('joruun', 3, 'Ultimate', 'barrage', 'openskywrath', 'Wrath of the Open Sky',
+    'Joruun lets go of the sky he carries. For six seconds the storm picks its own fights — bolt after bolt hunting the costliest monsters anywhere in his lane.',
+    85, 100, { dur: 6, count: 11, r: 600, dmg: 95, lvl: 9, smart: 1, hitR: 85, stun: 0.4 }, { c1: '#ffec8a', c2: '#2d3a52', shape: 'bolt' }),
+};
+
 // ---------------------------------------------------------------------------
 
-export const HEROES: HeroDef[] = [baldric, gorvana, sylri, vyrel, maelis, morrigan];
+export const HEROES: HeroDef[] = [baldric, gorvana, thrainn, joruun, sylri, vyrel, korrigan, maelis, morrigan, seraphine];
 
 export const HERO_BY_ID: Record<string, HeroDef> = Object.fromEntries(HEROES.map(h => [h.id, h]));
 
