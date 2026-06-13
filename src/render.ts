@@ -600,39 +600,98 @@ export function paintHero(ctx: Ctx, h: HeroState, t: number, g?: GameState) {
     ctx.restore();
   }
 
-  // cape behind everything
-  const capeWave = Math.sin(t * 3) * 2.6;
-  plate(ctx, [[-4, -8], [-13 - capeWave, 4], [-10 - capeWave * 0.6, 13], [-3, 9]], sh(p.trim, -0.25));
+  const weapon = def.weapon;
+  const giant = h.defId === 'joruun';
+  const robe = weapon === 'orb' || weapon === 'staff' || weapon === 'censer';
+  const hover = h.defId === 'maelis';
+  const bulk = giant ? 1.32 : 1;
 
-  // legs
-  limb(ctx, -3, 6, -4, 15, 3.4, sh(p.main, -0.3));
-  limb(ctx, 3, 6, 4, 15, 3.4, sh(p.main, -0.3));
-  // boots
-  blob(ctx, -4, 15.4, 2.8, 1.8, sh(p.main, -0.45));
-  blob(ctx, 4, 15.4, 2.8, 1.8, sh(p.main, -0.45));
-
-  // torso by archetype
-  if (def.weapon === 'orb' || def.weapon === 'staff' || def.weapon === 'censer') {
-    plate(ctx, [[-8.4, 13], [-5.4, -8], [5.4, -8], [8.4, 13]], p.main); // robe
-    plate(ctx, [[-8.4, 13], [-2, 8], [2, 8], [8.4, 13]], sh(p.main, -0.3));
-    plate(ctx, [[-5.4, -2], [5.4, -2], [5, 0.4], [-5, 0.4]], p.trim); // sash
-  } else {
-    plate(ctx, [[-7, -8], [7, -8], [6.4, 9], [-6.4, 9]], p.main); // cuirass
-    plate(ctx, [[-6.4, -1], [6.4, -1], [6, 1.6], [-6, 1.6]], p.trim); // belt
-    blob(ctx, 0, 1.4, 1.6, 1.6, sh(p.trim, 0.3)); // buckle
-    // pauldrons
-    blob(ctx, -7.4, -7.4, 3.4, 2.8, sh(p.main, 0.12));
-    blob(ctx, 7.4, -7.4, 3.4, 2.8, sh(p.main, 0.12));
-    glint(ctx, -3, -6, 5, -0.5, 0.35);
+  // cape / mantle behind everything (warriors, giants, the witch)
+  if (!robe || h.defId === 'morrigan') {
+    const capeWave = Math.sin(t * 3) * 2.6;
+    plate(ctx, [[-5 * bulk, -9], [(-14 - capeWave) * bulk, 5], [(-11 - capeWave * 0.6) * bulk, 15], [-3, 10]], sh(p.trim, -0.3));
   }
 
-  // head
-  blob(ctx, 0, -13, 5.4, 5, p.skin);
+  // ---- lower body
+  if (hover) {
+    const wisp = Math.sin(t * 4) * 3;
+    plate(ctx, [[-6, 4], [6, 4], [3 + wisp, 18], [0, 22], [-3 + wisp, 18]], sh(p.main, -0.2));
+    glowCircle(ctx, 0, 16, 12, p.glow, 0.4);
+  } else if (giant) {
+    limb(ctx, -5, 7, -6 + G.leg * 0.4, 17, 5.4, sh(p.skin, -0.2));
+    limb(ctx, 5, 7, 6 - G.leg * 0.4, 17, 5.4, sh(p.skin, -0.2));
+    plate(ctx, [[-9, 15], [-3, 15], [-4, 21], [-9, 21]], sh(p.main, -0.1)); // greaves
+    plate(ctx, [[9, 15], [3, 15], [4, 21], [9, 21]], sh(p.main, -0.1));
+  } else {
+    limb(ctx, -3, 6, -4, 15, 3.6, sh(p.main, -0.35));
+    limb(ctx, 3, 6, 4, 15, 3.6, sh(p.main, -0.35));
+    blob(ctx, -4, 15.6, 3, 2, sh(p.main, -0.5)); // boots
+    blob(ctx, 4, 15.6, 3, 2, sh(p.main, -0.5));
+    if (!robe) {
+      // tassets — a skirt of plates
+      plate(ctx, [[-6.5, 4], [-1, 4], [-1.5, 11], [-7, 10]], sh(p.main, -0.12));
+      plate(ctx, [[6.5, 4], [1, 4], [1.5, 11], [7, 10]], sh(p.main, -0.12));
+      plate(ctx, [[-1.6, 4], [1.6, 4], [1.6, 12], [-1.6, 12]], sh(p.main, -0.05));
+    }
+  }
+
+  // ---- torso
+  if (giant) {
+    plate(ctx, [[-10, -9], [10, -9], [8.5, 8], [-8.5, 8]], p.skin); // bare chest
+    ctx.strokeStyle = sh(p.skin, -0.3); ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(7, -3); ctx.moveTo(0, -8); ctx.lineTo(0, 6); ctx.stroke();
+    // crackling storm tattoos
+    ctx.strokeStyle = p.glow; ctx.lineWidth = 1.3; ctx.globalAlpha = 0.5 + Math.sin(t * 6) * 0.2;
+    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-3, -1); ctx.lineTo(-5, 3); ctx.moveTo(6, -5); ctx.lineTo(3, 0); ctx.lineTo(5, 4); ctx.stroke();
+    ctx.globalAlpha = 1;
+    plate(ctx, [[-10, 6], [10, 6], [9, 12], [-9, 12]], p.main); // loincloth
+    plate(ctx, [[-10, 6], [10, 6], [9.5, 8.4], [-9.5, 8.4]], p.trim); // belt
+    blob(ctx, -10.5, -8, 5, 4.2, sh(p.main, 0.15)); // huge pauldrons
+    blob(ctx, 10.5, -8, 5, 4.2, sh(p.main, 0.15));
+  } else if (robe) {
+    plate(ctx, [[-9, 14], [-5.4, -8], [5.4, -8], [9, 14]], p.main); // flowing robe
+    plate(ctx, [[-9, 14], [-3, 7], [3, 7], [9, 14]], sh(p.main, -0.32)); // hem shadow
+    plate(ctx, [[-9, 14], [-6, 14], [-5, 9], [-7.5, 9]], sh(p.main, 0.1)); // hem folds
+    plate(ctx, [[9, 14], [6, 14], [5, 9], [7.5, 9]], sh(p.main, 0.1));
+    blob(ctx, -7.5, -3, 3, 5, sh(p.main, 0.06)); // sleeves
+    blob(ctx, 7.5, -3, 3, 5, sh(p.main, 0.06));
+    plate(ctx, [[-5.4, -2], [5.4, -2], [5, 0.6], [-5, 0.6]], p.trim); // sash
+    glowCircle(ctx, 0, -6, 6, p.glow, 0.3); // rune-collar
+  } else {
+    plate(ctx, [[-7.5, -8.5], [7.5, -8.5], [6.6, 7], [-6.6, 7]], p.main); // cuirass
+    plate(ctx, [[-7.5, -8.5], [0, -6], [7.5, -8.5], [0, 0]], sh(p.main, 0.12)); // breast bevel
+    plate(ctx, [[-6.8, -1], [6.8, -1], [6.3, 1.8], [-6.3, 1.8]], p.trim); // belt
+    blob(ctx, 0, 0.4, 1.8, 1.8, sh(p.trim, 0.35)); // buckle
+    ctx.fillStyle = sh(p.trim, 0.3); // chest emblem
+    if (h.team === 0) { circle(ctx, 0, -4.5, 2); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(0, -4.5, 2.2, 0.5, Math.PI * 2 - 0.5); ctx.fill(); }
+    blob(ctx, -8, -8, 4, 3.2, sh(p.main, 0.16)); // pauldrons
+    blob(ctx, 8, -8, 4, 3.2, sh(p.main, 0.16));
+    glint(ctx, -3.5, -6.5, 5, -0.5, 0.35);
+    if (h.defId === 'sylri') { // quiver of glowing arrows
+      plate(ctx, [[5, -9], [8.5, -9], [7.5, 2], [4.5, 2]], '#5a4a30');
+      for (const qx of [5.6, 7, 8]) limb(ctx, qx, -9, qx + 0.6, -13, 1, p.glow);
+    }
+  }
+
+  // gorvana's restless tail
+  if (h.defId === 'gorvana') {
+    const tw = Math.sin(t * 5) * 5;
+    limb(ctx, -6, 8, -20, 4 + tw, 3.4, p.skin);
+    plate(ctx, [[-20, 4 + tw], [-24, 1 + tw], [-20, 8 + tw]], p.trim); // spade tip
+  }
+
+  // ---- head (giants sit higher)
+  const hy = giant ? -15 : -13;
+  const hr = giant ? 6 : 5.4;
+  blob(ctx, 0, hy, hr, hr * 0.92, p.skin);
   ctx.fillStyle = p.hair;
-  ctx.beginPath(); ctx.arc(0, -14.4, 5.4, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+  ctx.beginPath(); ctx.arc(0, hy - 1.4, hr, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
   ctx.fillStyle = '#14101f';
-  ctx.fillRect(1.2, -13.6, 1.6, 1.6); ctx.fillRect(-2.8, -13.6, 1.6, 1.6); // eyes
-  paintHeadgear(ctx, h.defId, p, t);
+  ctx.fillRect(1.2, hy - 0.6, 1.6, 1.6); ctx.fillRect(-2.8, hy - 0.6, 1.6, 1.6); // eyes
+  ctx.strokeStyle = sh(p.skin, -0.3); ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(-0.5, hy + 0.6); ctx.lineTo(-0.5, hy + 2.4); ctx.stroke(); // nose
+  ctx.save(); ctx.translate(0, giant ? -2 : 0); paintHeadgear(ctx, h.defId, p, t); ctx.restore();
 
   paintWeapon(ctx, def.weapon, p, t, lunge);
 
@@ -1003,6 +1062,13 @@ interface Floater {
 interface Beam { x1: number; y1: number; x2: number; y2: number; c: string; life: number; maxLife: number; w: number; jag?: boolean; }
 interface Marker { x: number; y: number; life: number; maxLife: number; }
 interface Pillar { x: number; y: number; life: number; maxLife: number; c1: string; c2: string; }
+// transient spell-shape effects, so casts read at a glance
+interface Fx {
+  kind: 'wedge' | 'shock' | 'zap' | 'column' | 'slamring';
+  x: number; y: number; x2: number; y2: number;
+  ang: number; arc: number; r: number;
+  c1: string; c2: string; life: number; maxLife: number;
+}
 
 // ============================================================ the renderer =
 
@@ -1014,6 +1080,7 @@ export class Renderer {
   beams: Beam[] = [];
   markers: Marker[] = [];
   pillars: Pillar[] = [];
+  fx: Fx[] = [];
   shake = 0;
   flash = 0;
   flashColor = '#ffffff';
@@ -1031,6 +1098,14 @@ export class Renderer {
 
   clickMarker(p: Vec) {
     this.markers.push({ x: p.x, y: p.y, life: 0, maxLife: 0.6 });
+  }
+
+  pushFx(kind: Fx['kind'], x: number, y: number, c1: string, c2: string, opt: Partial<Fx> = {}) {
+    this.fx.push({
+      kind, x, y, x2: opt.x2 ?? x, y2: opt.y2 ?? y,
+      ang: opt.ang ?? 0, arc: opt.arc ?? 0, r: opt.r ?? 60,
+      c1, c2, life: 0, maxLife: opt.maxLife ?? 0.38,
+    });
   }
 
   // ------------------------------------------------------------ terrain ---
@@ -1387,24 +1462,55 @@ export class Renderer {
               this.ring(e.pos, '#9acd32', 3.4);
               this.burst(e.pos, 8, '#9acd32', 'dot', 2);
               break;
-            case 'explode': case 'burst': case 'slam': case 'collapse':
+            case 'explode': case 'burst': case 'collapse':
               this.burst(e.pos, Math.min(26, 8 + e.r / 10), th.c1, e.kind === 'collapse' ? 'star' : 'ember', 3);
-              this.ring(e.pos, th.c1, e.kind === 'slam' ? 4 : 3);
+              this.ring(e.pos, th.c1, 3);
               if (e.r > 120) this.shakeIt(4);
               break;
+            case 'slam':
+              this.pushFx('slamring', e.pos.x, e.pos.y, th.c1, th.c2, { r: Math.max(60, e.r), maxLife: 0.42 });
+              this.burst(e.pos, 14, th.c1, 'ember', 3);
+              this.burst(e.pos, 8, '#d8d2c4', 'smoke', 2);
+              if (e.r > 120) this.shakeIt(5);
+              break;
             case 'roar':
-              this.ring(e.pos, th.c1, 6);
+              this.pushFx('shock', e.pos.x, e.pos.y, th.c1, th.c2, { r: e.r, maxLife: 0.5 });
               this.shakeIt(7);
               break;
-            case 'nova': case 'cone':
-              this.ring(e.pos, th.c1, 3);
-              this.burst(e.pos, 10, th.c1, 'spark', 3);
+            case 'nova':
+              this.pushFx('shock', e.pos.x, e.pos.y, th.c1, th.c2, { r: e.r, maxLife: 0.4 });
+              this.burst(e.pos, 12, th.c1, 'spark', 3.4);
+              break;
+            case 'cone':
+              this.pushFx('wedge', e.pos.x, e.pos.y, th.c1, th.c2, { ang: e.ang ?? 0, arc: e.arc ?? 1.8, r: e.r, maxLife: 0.34 });
+              this.burst(e.pos, 6, th.c1, 'spark', 3);
+              break;
+            case 'smite':
+              if (e.to) this.pushFx('zap', e.pos.x, e.pos.y, th.c1, th.c2, { x2: e.to.x, y2: e.to.y, maxLife: 0.3 });
+              this.ring(e.pos, th.c1, 2.6);
+              this.burst(e.pos, 12, th.c1, 'spark', 3.6);
+              this.flashScreen('#ffffff', 0.05);
+              break;
+            case 'blessing':
+              this.pushFx('column', e.pos.x, e.pos.y, th.c1, th.c2, { maxLife: 0.6 });
+              this.burst({ x: e.pos.x, y: e.pos.y + 14 }, 10, th.c1, 'spark', 2);
               break;
             case 'heal':
               this.burst(e.pos, 3, th.c1, 'dot', 1.4);
               break;
             case 'blink':
+              this.pushFx('zap', e.pos.x, e.pos.y, th.c1, th.c2, { x2: e.to?.x ?? e.pos.x, y2: e.to?.y ?? e.pos.y, maxLife: 0.26 });
               this.burst(e.pos, 9, th.c1, 'smoke', 2);
+              if (e.to) this.burst(e.to, 9, th.c1, 'spark', 2.4);
+              break;
+            case 'dashline':
+              if (e.to) {
+                this.pushFx('zap', e.pos.x, e.pos.y, th.c1, th.c2, { x2: e.to.x, y2: e.to.y, maxLife: 0.3 });
+              }
+              break;
+            case 'dashend':
+              this.burst(e.pos, 10, th.c1, 'spark', 3);
+              this.ring(e.pos, th.c1, 2.6);
               break;
             case 'phoenix':
               this.burst(e.pos, 30, '#ffb347', 'ember', 4);
@@ -1437,7 +1543,8 @@ export class Renderer {
           break;
         case 'forge': {
           const item = ITEM_BY_ID[e.itemId];
-          const h = g.teams[e.team].hero;
+          const pl = e.player !== undefined ? g.teams[e.team].players.find(p => p.id === e.player) : g.teams[e.team].players[0];
+          const h = (pl ?? g.teams[e.team].players[0]).hero;
           this.float({ x: h.pos.x, y: h.pos.y - 40 }, `⚒ ${item.name}`, '#e3b341', 15, true);
           this.burst(h.pos, 16, '#e3b341', 'spark', 3.4);
           break;
@@ -1575,9 +1682,10 @@ export class Renderer {
       if (s.maxHp > 0 && s.hp < s.maxHp) this.bar(ctx, -10, -22, 20, 3, s.hp / s.maxHp, '#9fe8b0');
       ctx.restore();
     }
-    for (const team of g.teams) this.drawHero(ctx, team.hero, g, t);
+    for (const team of g.teams) for (const pl of team.players) this.drawHero(ctx, pl.hero, g, t);
     for (const pr of g.projectiles) this.drawProjectile(ctx, pr, t);
 
+    this.drawFx(ctx, dt);
     this.drawPillars(ctx, dt);
     this.drawParticles(ctx, dt);
     this.drawBeams(ctx, dt);
@@ -1671,7 +1779,7 @@ export class Renderer {
     for (const team of [0, 1] as TeamId[]) {
       const x = laneCenterX(team);
       const y = C.SPAWN_Y - 26;
-      const congested = g.teams[1 - team].sendQueue.length;
+      const congested = g.teams[1 - team].players.reduce((s, p) => s + p.sendQueue.length, 0);
       ctx.save();
       ctx.translate(x, y);
       // stone arch, dressed
@@ -1839,8 +1947,8 @@ export class Renderer {
       ctx.lineWidth = 5;
       ctx.beginPath(); ctx.arc(0, 18, 33, Math.PI, 0); ctx.stroke();
       // keep towers — one per level, with conical roofs
-      for (let k = 0; k < team.baseLevel; k++) {
-        const tx = (k - (team.baseLevel - 1) / 2) * 70;
+      for (let k = 0; k < team.maxKeep; k++) {
+        const tx = (k - (team.maxKeep - 1) / 2) * 70;
         plate(ctx, [[tx - 20, -98], [tx + 20, -98], [tx + 17, -36], [tx - 17, -36]], sh(stone, 0.08));
         ctx.strokeStyle = 'rgba(0,0,0,0.25)';
         ctx.lineWidth = 1;
@@ -2344,6 +2452,130 @@ export class Renderer {
           this.burst({ x: L.x0 + 20 + Math.random() * (L.x1 - L.x0 - 40), y: z.pos.y + w * 0.5 }, 1, '#8a7a5d', 'smoke', 1.4);
         }
         break;
+      }
+    }
+    ctx.restore();
+  }
+
+  drawFx(ctx: Ctx, dt: number) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = this.fx.length - 1; i >= 0; i--) {
+      const f = this.fx[i];
+      f.life += dt;
+      if (f.life >= f.maxLife) { this.fx.splice(i, 1); continue; }
+      const p = f.life / f.maxLife;
+      const a = 1 - p;
+      ctx.globalAlpha = a;
+      switch (f.kind) {
+        case 'wedge': {
+          // a sweeping arc of light fanning out from the caster
+          const r = f.r * (0.55 + p * 0.5);
+          const grad = ctx.createRadialGradient(f.x, f.y, 4, f.x, f.y, r);
+          grad.addColorStop(0, f.c1);
+          grad.addColorStop(0.7, f.c2);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(f.x, f.y);
+          ctx.arc(f.x, f.y, r, f.ang - f.arc / 2, f.ang + f.arc / 2);
+          ctx.closePath();
+          ctx.fill();
+          // leading edge highlight that sweeps across the arc
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = a * 0.9;
+          ctx.lineWidth = 3;
+          const edge = f.ang - f.arc / 2 + f.arc * p;
+          ctx.beginPath();
+          ctx.moveTo(f.x, f.y);
+          ctx.lineTo(f.x + Math.cos(edge) * r, f.y + Math.sin(edge) * r);
+          ctx.stroke();
+          break;
+        }
+        case 'shock': {
+          // double expanding ring with radial spikes
+          const r = f.r * (0.2 + p * 0.95);
+          ctx.strokeStyle = f.c1;
+          ctx.lineWidth = 5 * a;
+          ctx.beginPath();
+          ctx.ellipse(f.x, f.y, r, r * 0.62, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2 * a;
+          ctx.beginPath();
+          ctx.ellipse(f.x, f.y, r * 0.82, r * 0.51, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.strokeStyle = f.c2;
+          ctx.lineWidth = 2.4 * a;
+          for (let k = 0; k < 10; k++) {
+            const ang = (k / 10) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.moveTo(f.x + Math.cos(ang) * r * 0.7, f.y + Math.sin(ang) * r * 0.43);
+            ctx.lineTo(f.x + Math.cos(ang) * r, f.y + Math.sin(ang) * r * 0.62);
+            ctx.stroke();
+          }
+          break;
+        }
+        case 'slamring': {
+          const r = f.r * (0.3 + p * 0.9);
+          ctx.strokeStyle = f.c1;
+          ctx.lineWidth = 6 * a;
+          ctx.beginPath();
+          ctx.ellipse(f.x, f.y, r, r * 0.45, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.fillStyle = f.c2;
+          ctx.globalAlpha = a * 0.5;
+          for (let k = 0; k < 8; k++) {
+            const ang = (k / 8) * Math.PI * 2;
+            ctx.fillRect(f.x + Math.cos(ang) * r - 2, f.y + Math.sin(ang) * r * 0.45 - 2, 4, 4);
+          }
+          break;
+        }
+        case 'zap': {
+          // jagged bolt from caster to target
+          ctx.strokeStyle = f.c1;
+          ctx.lineWidth = 4 * a + 1;
+          ctx.shadowColor = f.c1;
+          ctx.shadowBlur = 8;
+          const segs = 5;
+          ctx.beginPath();
+          ctx.moveTo(f.x2, f.y2);
+          for (let s = 1; s < segs; s++) {
+            const fr = s / segs;
+            const mx = f.x2 + (f.x - f.x2) * fr + (hash(i * 9 + s + Math.floor(f.life * 60)) - 0.5) * 20;
+            const my = f.y2 + (f.y - f.y2) * fr + (hash(i * 17 + s) - 0.5) * 20;
+            ctx.lineTo(mx, my);
+          }
+          ctx.lineTo(f.x, f.y);
+          ctx.stroke();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5 * a;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          break;
+        }
+        case 'column': {
+          // rising column of light + halo: a buff just landed
+          const h = 70 * (0.5 + p);
+          const w = 22 * a;
+          const grad = ctx.createLinearGradient(f.x, f.y + 14, f.x, f.y - h);
+          grad.addColorStop(0, f.c1);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(f.x - w, f.y + 14);
+          ctx.lineTo(f.x - w * 0.4, f.y - h);
+          ctx.lineTo(f.x + w * 0.4, f.y - h);
+          ctx.lineTo(f.x + w, f.y + 14);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = f.c2;
+          ctx.lineWidth = 2.4 * a;
+          ctx.beginPath();
+          ctx.ellipse(f.x, f.y + 12, 24 * (0.4 + p), 8 * (0.4 + p), 0, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+        }
       }
     }
     ctx.restore();

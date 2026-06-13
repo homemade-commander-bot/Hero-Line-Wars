@@ -25,6 +25,8 @@ export const C = {
 
   // castle
   CASTLE_HP: 3000,
+  CASTLE_HP_PER_ALLY: 0.55, // 3v3: castle hp scales with team size
+  CASTLE_DPS_PER_ALLY: 0.4, // 3v3: castle archers scale too
   CASTLE_DPS: [0, 22, 32, 46], // by keep level (index 1..3)
   CASTLE_RANGE: 270,
   CASTLE_SHOT_PERIOD: 0.9,
@@ -86,6 +88,10 @@ export const C = {
   DMG_GAIN: 7,
   ARMOR_GAIN: 1.5,
   STAT_CAP: 12, // purchases per track — heroes cannot out-scale the horde forever
+
+  // item economy
+  SELL_PCT: 0.6, // refund fraction when selling an item
+  UNDO_WINDOW: 12, // seconds: a freshly-bought basic refunds in full (mistake undo)
 
   // engine
   DT: 1 / 60,

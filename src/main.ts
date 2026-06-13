@@ -4,12 +4,11 @@
 // ---------------------------------------------------------------------------
 
 import './style.css';
-import type { GameEvent, GameState, TeamId } from './types';
+import type { GameEvent, GameState, PlayerState, TeamId } from './types';
 import { C, type Difficulty } from './data/constants';
-import { HEROES } from './data/heroes';
 import {
-  newGame, randomLoadout, step, trySend, tryBuyItem, tryBuyStat,
-  tryRepair, tryUpgradeKeep,
+  allPlayers, newGame, randomHeroes, randomLoadout, step, trySend, tryBuyItem,
+  trySellItem, tryBuyStat, tryRepair, tryUpgradeKeep,
 } from './engine';
 import { aiThink } from './ai';
 import { Renderer } from './render';
@@ -21,15 +20,17 @@ type Mode = 'pick' | 'random' | 'spectate';
 interface Session {
   g: GameState;
   renderer: Renderer;
-  playerTeam: TeamId;
+  human: PlayerState | null; // null in spectate
+  viewTeam: TeamId;
   spectate: boolean;
   paused: boolean;
   speed: number;
   speedOptions: number[];
   over: boolean;
-  endShownAt: number; // real time when win fired
+  endShownAt: number;
   mode: Mode;
   difficulty: Difficulty;
+  teamSize: 1 | 3;
   heroId?: string;
   loadout?: string[];
 }
@@ -65,51 +66,53 @@ addEventListener('keydown', initAudio, { once: false });
 ui.initMenu(choice => {
   if (choice.mode === 'pick') {
     ui.buildHeroSelect(
-      (heroId, loadout) => startGame('pick', choice.difficulty, heroId, loadout),
+      (heroId, loadout) => startGame('pick', choice.difficulty, choice.teamSize, heroId, loadout),
       () => ui.screen('menu'),
     );
     ui.screen('select');
   } else {
-    startGame(choice.mode, choice.difficulty);
+    startGame(choice.mode, choice.difficulty, choice.teamSize);
   }
 });
 ui.screen('menu');
 
 // ------------------------------------------------------------- start game
 
-function startGame(mode: Mode, difficulty: Difficulty, heroId?: string, loadout?: string[]) {
+function startGame(mode: Mode, difficulty: Difficulty, teamSize: 1 | 3, heroId?: string, loadout?: string[]) {
   const rng = () => Math.random();
-  const ids = HEROES.map(h => h.id);
-  const pick = () => ids[Math.floor(Math.random() * ids.length)];
-
-  const p0 = mode === 'pick' && heroId ? heroId : pick();
-  let p1 = pick();
-  if (p1 === p0 && Math.random() < 0.7) p1 = pick(); // mirrors allowed, just less often
+  // distinct heroes across the battle; the picked hero leads team 0
+  let ids = randomHeroes(rng, teamSize * 2);
+  if (mode === 'pick' && heroId) {
+    ids = ids.filter(id => id !== heroId);
+    ids.unshift(heroId);
+    ids = ids.slice(0, teamSize * 2);
+  }
+  const loadouts = ids.map((id, i) =>
+    i === 0 && mode === 'pick' && loadout ? loadout : randomLoadout(id, rng));
 
   const g = newGame({
-    heroIds: [p0, p1],
-    loadouts: [
-      mode === 'pick' && loadout ? loadout : randomLoadout(p0, rng),
-      randomLoadout(p1, rng),
-    ],
-    ai: [mode === 'spectate', true],
+    teamSize,
+    heroIds: ids,
+    loadouts,
+    humanPlayer: mode === 'spectate' ? -1 : 0,
     difficulty: mode === 'spectate' ? [difficulty, difficulty] : difficulty,
   });
 
   S = {
     g,
     renderer: new Renderer(canvas),
-    playerTeam: 0,
+    human: mode === 'spectate' ? null : g.teams[0].players[0],
+    viewTeam: 0,
     spectate: mode === 'spectate',
     paused: false,
     speed: 1,
     speedOptions: mode === 'spectate' ? [1, 2, 4, 8] : [1, 2],
     over: false,
     endShownAt: 0,
-    mode, difficulty, heroId, loadout,
+    mode, difficulty, teamSize, heroId, loadout,
   };
 
-  ui.buildHud(g, 0, makeActions(), S.spectate);
+  ui.buildHud(g, S.human ? S.human.id : g.teams[0].players[0].id, makeActions(), S.spectate);
   ui.screen('game');
   ui.setPauseVeil(false);
   sfx.horn();
@@ -120,38 +123,41 @@ function makeActions(): ui.HudActions {
   return {
     send(defId, count) {
       if (!S || S.over) return;
-      if (S.spectate) return deny();
-      const team = S.g.teams[S.playerTeam];
+      if (!S.human) return deny();
       let sent = 0;
-      for (let i = 0; i < count; i++) if (trySend(S.g, team, defId)) sent++;
+      for (let i = 0; i < count; i++) if (trySend(S.g, S.human, defId)) sent++;
       if (sent > 0) sfx.coin();
     },
     buyItem(id) {
       if (!S || S.over) return;
-      if (S.spectate) return deny();
-      if (tryBuyItem(S.g, S.g.teams[S.playerTeam], id)) {
+      if (!S.human) return deny();
+      if (tryBuyItem(S.g, S.human, id)) {
         sfx.coin();
         ui.refreshPanel();
       }
     },
     buyStat(key) {
       if (!S || S.over) return;
-      if (S.spectate) return deny();
-      if (tryBuyStat(S.g, S.g.teams[S.playerTeam], key)) sfx.coin();
+      if (!S.human) return deny();
+      if (tryBuyStat(S.g, S.human, key)) sfx.coin();
     },
     upgradeKeep() {
       if (!S || S.over) return;
-      if (S.spectate) return deny();
-      if (tryUpgradeKeep(S.g, S.g.teams[S.playerTeam])) ui.refreshPanel();
+      if (!S.human) return deny();
+      if (tryUpgradeKeep(S.g, S.human)) ui.refreshPanel();
     },
     repair() {
       if (!S || S.over) return;
-      if (S.spectate) return deny();
-      tryRepair(S.g, S.g.teams[S.playerTeam]);
+      if (!S.human) return deny();
+      tryRepair(S.g, S.human);
     },
     useItem(slot) {
-      if (!S || S.over || S.spectate) return;
-      S.g.teams[S.playerTeam].input.useItem[slot] = true;
+      if (!S || S.over || !S.human) return;
+      S.human.input.useItem[slot] = true;
+    },
+    sellItem(slot) {
+      if (!S || S.over || !S.human) return;
+      if (trySellItem(S.g, S.human, slot)) { sfx.coin(); ui.refreshPanel(); }
     },
     togglePause() {
       if (!S || S.over) return;
@@ -171,9 +177,8 @@ function makeActions(): ui.HudActions {
     quit() {
       if (!S) return;
       if (!S.over && !S.spectate) {
-        // concede
         S.g.over = true;
-        S.g.winner = (1 - S.playerTeam) as TeamId;
+        S.g.winner = 1;
         finishGame();
       } else {
         S = null;
@@ -187,8 +192,7 @@ function finishGame() {
   if (!S) return;
   S.over = true;
   S.endShownAt = performance.now();
-  if (S.spectate) sfx.victory();
-  else if (S.g.winner === S.playerTeam) sfx.victory();
+  if (S.spectate || S.g.winner === 0) sfx.victory();
   else sfx.defeat();
 }
 
@@ -210,13 +214,13 @@ addEventListener('keydown', e => {
       e.preventDefault();
       break;
     case 'q': case 'e': case 'f': case 'r': {
-      if (S.spectate || S.over || S.paused) break;
-      S.g.teams[S.playerTeam].input.cast[KEY_TO_SLOT[k]] = true;
+      if (!S.human || S.over || S.paused) break;
+      S.human.input.cast[KEY_TO_SLOT[k]] = true;
       break;
     }
     case '1': case '2': case '3': case '4': case '5': case '6': {
-      if (S.spectate || S.over || S.paused) break;
-      S.g.teams[S.playerTeam].input.useItem[parseInt(k, 10) - 1] = true;
+      if (!S.human || S.over || S.paused) break;
+      S.human.input.useItem[parseInt(k, 10) - 1] = true;
       break;
     }
     case 'b': ui.togglePanel('barracks'); sfx.click(); break;
@@ -243,26 +247,26 @@ function canvasPos(e: MouseEvent): { x: number; y: number } | null {
 }
 
 addEventListener('mousemove', e => {
-  if (!S || S.spectate) return;
+  if (!S || !S.human) return;
   const p = canvasPos(e);
-  if (p) S.g.teams[S.playerTeam].input.aim = p;
+  if (p) S.human.input.aim = p;
 });
 
 // click-to-move: either button on open ground is a marching order
 canvas.addEventListener('mousedown', e => {
-  if (!S || S.spectate || S.over || S.paused) return;
+  if (!S || !S.human || S.over || S.paused) return;
   const p = canvasPos(e);
   if (!p) return;
   e.preventDefault();
-  S.g.teams[S.playerTeam].input.moveTo = p;
+  S.human.input.moveTo = p;
   S.renderer.clickMarker(p);
   sfx.click();
 });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 function readMoveInput() {
-  if (!S || S.spectate) return;
-  const input = S.g.teams[S.playerTeam].input;
+  if (!S || !S.human) return;
+  const input = S.human.input;
   let x = 0, y = 0;
   if (keys.has('a') || keys.has('arrowleft')) x -= 1;
   if (keys.has('d') || keys.has('arrowright')) x += 1;
@@ -273,7 +277,7 @@ function readMoveInput() {
 
 // ----------------------------------------------------------- event sounds
 
-function playEventSfx(events: GameEvent[], playerTeam: TeamId) {
+function playEventSfx(events: GameEvent[], humanTeam: TeamId, humanId: number) {
   for (const e of events) {
     switch (e.t) {
       case 'dmg':
@@ -285,24 +289,28 @@ function playEventSfx(events: GameEvent[], playerTeam: TeamId) {
       }
       case 'cast': e.ult ? sfx.ult() : sfx.cast(); break;
       case 'impact':
-        if (e.kind === 'explode' || e.kind === 'slam' || e.kind === 'collapse') sfx.explode();
+        if (e.kind === 'explode' || e.kind === 'slam' || e.kind === 'collapse' || e.kind === 'anvilhit') sfx.explode();
         else if (e.kind === 'roar') sfx.heroDeath();
+        else if (e.kind === 'bolt') sfx.cast();
         break;
-      case 'send': if (e.team === playerTeam) sfx.horn(); break;
-      case 'income': if (e.team === playerTeam) sfx.income(); break;
-      case 'gold': if (e.team === playerTeam && e.pos) sfx.coin(); break;
-      case 'levelup': if (e.team === playerTeam) sfx.levelup(); break;
+      case 'send': if (e.team === humanTeam) sfx.horn(); break;
+      case 'income': if (e.player === humanId) sfx.income(); break;
+      case 'gold': if (e.player === humanId && e.pos) sfx.coin(); break;
+      case 'levelup': if (e.player === humanId) sfx.levelup(); break;
       case 'forge': sfx.forge(); break;
       case 'buy': break;
+      case 'sell':
+        if (e.player === humanId) ui.toast(`Sold for ${e.refund}g`);
+        break;
       case 'castleHit': sfx.castleHit(); break;
       case 'volley': sfx.volley(); break;
-      case 'repair': if (e.team === playerTeam) sfx.repair(); break;
+      case 'repair': if (e.team === humanTeam) sfx.repair(); break;
       case 'upgrade': sfx.upgrade(); break;
       case 'heroDeath': sfx.heroDeath(); break;
-      case 'heroSpawn': if (e.team === playerTeam) sfx.heroSpawn(); break;
+      case 'heroSpawn': if (e.team === humanTeam) sfx.heroSpawn(); break;
       case 'underdog': if (e.on) sfx.underdog(); break;
       case 'twilight': sfx.twilight(); break;
-      case 'deny': if (e.team === playerTeam) ui.toast(e.msg); break;
+      case 'deny': if (e.player === humanId) ui.toast(e.msg); break;
     }
   }
 }
@@ -315,7 +323,7 @@ function frame(now: number) {
   requestAnimationFrame(frame);
   const realDt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  fitScreen(); // cheap (cached); survives missed resize events
+  fitScreen();
   if (!S) return;
   const sess = S;
   const g = sess.g;
@@ -326,37 +334,32 @@ function frame(now: number) {
     let steps = 0;
     while (budget > 0 && steps < 16 && !g.over) {
       const dt = Math.min(C.DT, budget);
-      if (g.teams[0].ai) aiThink(g, 0);
-      if (g.teams[1].ai) aiThink(g, 1);
+      for (const pl of allPlayers(g)) if (pl.ai) aiThink(g, pl);
       step(g, dt);
       budget -= dt;
       steps++;
     }
   }
 
-  // drain events exactly once per frame
   const events = g.events;
   g.events = [];
   if (events.length > 0) {
-    sess.renderer.consume(events, g, sess.playerTeam);
-    playEventSfx(events, sess.playerTeam);
+    sess.renderer.consume(events, g, sess.viewTeam);
+    playEventSfx(events, sess.human ? sess.human.team : 0, sess.human ? sess.human.id : -1);
     for (const e of events) {
       if (e.t === 'win' && !sess.over) finishGame();
-      if (e.t === 'upgrade' && e.team === sess.playerTeam) ui.refreshPanel();
-      if (e.t === 'forge' && e.team === sess.playerTeam) ui.refreshPanel();
+      if ((e.t === 'upgrade' || e.t === 'forge') && sess.human && e.team === sess.human.team) ui.refreshPanel();
     }
   }
 
-  sess.renderer.draw(g, realDt, sess.playerTeam);
+  sess.renderer.draw(g, realDt, sess.viewTeam);
   ui.updateHud(g);
 
-  // linger on the battlefield a moment, then the verdict
   if (sess.over && performance.now() - sess.endShownAt > 1600 && document.getElementById('screen-end')!.classList.contains('hidden')) {
     const again = () => {
-      ui.screen('game');
-      startGame(sess.mode, sess.difficulty, sess.heroId, sess.loadout);
+      startGame(sess.mode, sess.difficulty, sess.teamSize, sess.heroId, sess.loadout);
     };
-    ui.showEnd(g, sess.playerTeam, sess.spectate, again, () => {
+    ui.showEnd(g, sess.human ? sess.human.team : 0, sess.spectate, again, () => {
       S = null;
       ui.screen('menu');
     });

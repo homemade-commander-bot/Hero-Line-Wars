@@ -113,11 +113,13 @@ export interface ItemState {
   readyAt: number; // for actives / proc cooldowns
   counter: number; // for "every Nth hit" procs
   used: boolean;   // for one-time effects (phoenix revive)
+  boughtAt: number; // game time of purchase — basics undo at full price for a short window
 }
 
 export interface HeroState {
   defId: string;
   team: TeamId;
+  player: number; // owning player's global id
   pos: Vec;
   facing: number; // -1 left, 1 right (visual)
   level: number;
@@ -221,6 +223,7 @@ export interface UnitState {
   roared: boolean; // avatar one-time fear
   state: 'march' | 'castle';
   bob: number; // render phase
+  player?: number; // sending player's id (bounty steal attribution)
 }
 
 // -------------------------------------------------------------------- summons
@@ -240,6 +243,7 @@ export interface SummonState {
   until: number;
   attackReadyAt: number;
   theme: AbilityTheme;
+  player?: number; // owning player's id
 }
 
 // ---------------------------------------------------------------- projectiles
@@ -268,6 +272,7 @@ export interface Projectile {
   targetUnit: number; // homing autoattack arrows: unit id or -1
   theme: AbilityTheme;
   ignite: number; // dps applied as dot on hit (skyfire)
+  player?: number; // owning player's id
 }
 
 // ---------------------------------------------------------------------- zones
@@ -289,6 +294,7 @@ export interface Zone {
   theme: AbilityTheme;
   born: number;
   applied?: boolean; // one-shot zones (root, pollen)
+  player?: number; // owning player's id
 }
 
 // --------------------------------------------------------------------- events
@@ -297,14 +303,15 @@ export type GameEvent =
   | { t: 'dmg'; pos: Vec; amount: number; kind: 'phys' | 'magic'; target: 'unit' | 'hero' | 'castle' | 'summon'; team: TeamId }
   | { t: 'death'; pos: Vec; defId: string; tier: number; lane: TeamId }
   | { t: 'cast'; team: TeamId; abId: string; pos: Vec; aim: Vec; ult: boolean }
-  | { t: 'impact'; pos: Vec; r: number; theme: AbilityTheme; kind: string }
+  | { t: 'impact'; pos: Vec; r: number; theme: AbilityTheme; kind: string; ang?: number; arc?: number; to?: Vec }
   | { t: 'send'; team: TeamId; defId: string }
   | { t: 'spawn'; pos: Vec; lane: TeamId; defId: string }
-  | { t: 'income'; team: TeamId; amount: number }
-  | { t: 'gold'; team: TeamId; amount: number; pos?: Vec }
-  | { t: 'levelup'; team: TeamId; level: number; pos: Vec }
-  | { t: 'forge'; team: TeamId; itemId: string }
+  | { t: 'income'; team: TeamId; amount: number; player?: number }
+  | { t: 'gold'; team: TeamId; amount: number; pos?: Vec; player?: number }
+  | { t: 'levelup'; team: TeamId; level: number; pos: Vec; player?: number }
+  | { t: 'forge'; team: TeamId; itemId: string; player?: number }
   | { t: 'buy'; team: TeamId; itemId: string }
+  | { t: 'sell'; team: TeamId; player: number; itemId: string; refund: number }
   | { t: 'castleHit'; team: TeamId; amount: number }
   | { t: 'castleShot'; team: TeamId; from: Vec; to: Vec }
   | { t: 'volley'; team: TeamId }
@@ -314,7 +321,7 @@ export type GameEvent =
   | { t: 'heroSpawn'; team: TeamId; pos: Vec }
   | { t: 'underdog'; team: TeamId; on: boolean }
   | { t: 'twilight'; level: number }
-  | { t: 'deny'; team: TeamId; msg: string }
+  | { t: 'deny'; team: TeamId; player: number; msg: string }
   | { t: 'proc'; pos: Vec; itemId: string; targets?: Vec[] }
   | { t: 'win'; team: TeamId };
 
@@ -340,6 +347,26 @@ export interface TeamStats {
   peakIncome: number;
 }
 
+/** One commander: a hero, a wallet, a barracks. Human or AI. */
+export interface PlayerState {
+  id: number; // global index across both teams
+  team: TeamId;
+  name: string;
+  human: boolean;
+  gold: number;
+  income: number;
+  baseLevel: 1 | 2 | 3; // personal keep tier (send unlocks + own gate speed)
+  sendQueue: string[];
+  nextSpawnAt: number;
+  statUp: { str: number; agi: number; int: number; dmg: number; armor: number };
+  repairReadyAt: number;
+  repairCount: number;
+  hero: HeroState;
+  input: TeamInput;
+  ai: AiState | null;
+  stats: TeamStats;
+}
+
 export interface AiState {
   nextThinkAt: number;
   strategy: string;
@@ -358,24 +385,14 @@ export interface AiState {
 export interface TeamState {
   id: TeamId;
   name: string;
-  gold: number;
-  income: number;
-  baseLevel: 1 | 2 | 3;
   castleHp: number;
   castleMaxHp: number;
   castleShotAt: number;
   volleyAt: number;
-  repairReadyAt: number;
-  repairCount: number;
-  sendQueue: string[];
-  nextSpawnAt: number;
-  statUp: { str: number; agi: number; int: number; dmg: number; armor: number };
+  maxKeep: 1 | 2 | 3; // highest player tier — drives castle archers + visuals
   underdog: boolean;
   lastStand: boolean;
-  hero: HeroState;
-  input: TeamInput;
-  ai: AiState | null;
-  stats: TeamStats;
+  players: PlayerState[];
 }
 
 // ----------------------------------------------------------------------- game

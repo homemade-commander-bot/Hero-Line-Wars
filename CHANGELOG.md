@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.3.0] — 2026-06-13
+
+The "warbands patch": 3v3, economy fix, sell/undo, readable spells, and a layout cleanup.
+
+### Added
+- **3v3 mode** ("Warbands"): you + 2 AI allies vs 3 enemy commanders, chosen from a Battle picker on the menu. Full per-player economy refactor — every commander (human or AI) owns their own gold, income, keep tier, barracks gate and item build; castles are shared by the team and scale with team size (+55% hp, +40% archers per ally). Kill bounty/XP attributes to the killer with assist-XP to lane-mates. AI allies hold formation spread across the lane (`engine.ts`, `ai.ts`, `ui.ts`, `sim.ts`).
+- **Enemy & ally intel**: each commander shows a portrait, level and live item build in the top bar, with a tooltip listing their full inventory — so you can finally scout what the enemy is building.
+- **Sell & undo items**: right-click an inventory item to sell it (60% refund); a freshly-bought basic refunds in full within a 12s undo window.
+- **Forge when full**: with a full 6-slot inventory you can still buy the component that *completes* a recipe — it consumes the held pieces and drops the finished item in place.
+- **Readable spell FX**: dedicated transient-geometry system — cone slashes now draw a sweeping wedge, novas a spiked shockwave ring, smites/blinks a jagged caster-to-target bolt, buffs a rising column of light, slams a ground ring with debris.
+- **Hero models 2.0**: bulkier, archetype-specific builds — storm-giant Joruun (wide tattooed torso, greaves), robed mages with layered hems and sleeves, plate warriors with tassets, pauldrons, chest emblems and gauntlets; Gorvana animates a tail, Sylri carries a glowing quiver, Maelis hovers legless on a void-wisp; faces gained brows/noses.
+
+### Changed
+- **Economy curve inverted** — the core fix. Higher-tier monsters now return *more* income per gold (goblin 12 → avatar 15.4 income per 100g), so teching up is the economic play and goblin-spam is no longer strictly optimal. The counterweight is upfront cost and bounty risk (a leaked golem pays the defender 180g).
+- **Shop panel relocated** off the right lane to float over the central chasm (dead space) — both lanes now stay fully visible while shopping.
+
+### Fixed
+- Wyvern/avatar specials and Imp/Avatar AoE now correctly target the *nearest* defending hero in a multi-hero lane (previously assumed one hero per team).
+
+### Balance / known issues
+- 1v1: 24/24 and 40/40 sims in the 15–45 min window (median ~24 min). A team-1 side skew in 1v1 traced to hero-draw variance over the fixed seed set, not a mechanical bias (it vanishes in 3v3, 44–56% across sides).
+- 3v3: 16/16 in window (median ~28 min); hero winrates 22–86% on small samples (n=7–11). Korrigan trends low, Vyrel/Baldric high — a tuning pass is warranted after human playtesting.
+
 ## [0.2.0] — 2026-06-12
 
 The "late-90s patch": art direction, controls, and content overhaul.

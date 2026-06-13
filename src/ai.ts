@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
-// The enemy warlord. Plays through the same TeamInput + shop calls as a
-// human. No resource cheats: difficulty changes reaction speed, aim and
-// (for Squire) a self-inflicted price markup.
+// The AI commanders. Each AI player runs the same TeamInput + shop calls as
+// a human. No resource cheats: difficulty changes reaction speed, aim and
+// (for Squire) a self-inflicted price markup. In 3v3 your allies are these.
 // ---------------------------------------------------------------------------
 
-import type { GameState, TeamId, TeamState, UnitState, Vec } from './types';
-import { C, fountainPos, laneCenterX } from './data/constants';
+import type { GameState, HeroState, PlayerState, TeamId, UnitState, Vec } from './types';
+import { C, fountainPos, laneCenterX, laneOf } from './data/constants';
 import { HERO_BY_ID } from './data/heroes';
 import { UNIT_BY_ID } from './data/units';
 import { ITEM_BY_ID } from './data/items';
@@ -36,13 +36,13 @@ const STRATS: Record<string, { keep: number; list: string[] }> = {
   doom: { keep: 3, list: ['avatar', 'priest', 'banner', 'ogre'] },
 };
 
-function pickStrategy(g: GameState, team: TeamState): string {
-  const enemy = g.teams[1 - team.id];
-  const eDef = HERO_BY_ID[enemy.hero.defId];
-  const pool = Object.entries(STRATS).filter(([, s]) => s.keep <= team.baseLevel);
+function pickStrategy(g: GameState, pl: PlayerState): string {
+  // read a random enemy commander and counter them
+  const foes = g.teams[1 - pl.team].players;
+  const eDef = HERO_BY_ID[foes[Math.floor(g.rng() * foes.length)].hero.defId];
+  const pool = Object.entries(STRATS).filter(([, s]) => s.keep <= pl.baseLevel);
   const weights = pool.map(([name]) => {
     let w = 1;
-    // counter-picking: mages hate golems, melee hates wings, archers drown in bodies
     if (eDef.attr === 'int') {
       if (name === 'siege' || name === 'bruise' || name === 'doom') w += 1.6;
       if (name === 'swarm' && g.t > 600) w -= 0.5;
@@ -52,7 +52,7 @@ function pickStrategy(g: GameState, team: TeamState): string {
     } else {
       if (name === 'swarm' || name === 'wolves' || name === 'bruise' || name === 'recycler') w += 1.2;
     }
-    if (name === 'doom' && team.gold < 1400) w = 0;
+    if (name === 'doom' && pl.gold < 1400) w = 0;
     return Math.max(0.05, w);
   });
   let total = weights.reduce((a, b) => a + b, 0);
@@ -90,9 +90,8 @@ function totalValue(units: UnitState[]): number {
   return units.reduce((s, u) => s + unitValue(u), 0);
 }
 
-export function aiThink(g: GameState, teamId: TeamId) {
-  const team = g.teams[teamId];
-  const ai = team.ai;
+export function aiThink(g: GameState, pl: PlayerState) {
+  const ai = pl.ai;
   if (!ai || g.over) return;
   if (g.t < ai.nextThinkAt) return;
   ai.nextThinkAt = g.t + ai.thinkInterval;
@@ -100,21 +99,28 @@ export function aiThink(g: GameState, teamId: TeamId) {
   const skip = ai.priceMult > 1 ? 0.3 : ai.thinkInterval <= 0.55 ? 0 : 0.08;
   if (g.rng() < skip) return; // a moment of hesitation
 
-  micro(g, team);
-  macro(g, team);
+  micro(g, pl);
+  macro(g, pl);
 }
 
 // ------------------------------------------------------------------- micro
 
-function micro(g: GameState, team: TeamState) {
-  const ai = team.ai!;
-  const h = team.hero;
+function micro(g: GameState, pl: PlayerState) {
+  const ai = pl.ai!;
+  const h = pl.hero;
   if (h.dead) return;
   const def = heroDef(h);
-  const units = laneUnits(g, team.id);
-  const fp = fountainPos(team.id);
+  const units = laneUnits(g, pl.team);
+  const fp = fountainPos(pl.team);
   const hpPct = h.hp / h.d.maxHp;
-  const input = team.input;
+  const input = pl.input;
+  input.moveTo = null; // AI steers directly
+
+  // allies hold formation: spread across the lane by slot
+  const slot = g.teams[pl.team].players.indexOf(pl);
+  const n = g.teams[pl.team].players.length;
+  const L = laneOf(pl.team);
+  const spreadX = n > 1 ? (slot - (n - 1) / 2) * (L.x1 - L.x0) * 0.26 : 0;
 
   // --- positioning -------------------------------------------------------
   let desired: Vec;
@@ -122,16 +128,14 @@ function micro(g: GameState, team: TeamState) {
   if (retreating) {
     desired = { x: fp.x, y: fp.y };
   } else if (units.length === 0) {
-    desired = { x: laneCenterX(team.id), y: 540 };
+    desired = { x: laneCenterX(pl.team) + spreadX, y: 540 };
   } else {
-    // weighted toward the deepest threat
     let deepest = units[0];
     for (const u of units) if (u.pos.y > deepest.pos.y) deepest = u;
     const cl = bestCluster(units, 160)!;
     const focus = deepest.pos.y > 620 ? deepest.pos : cl.pos;
     if (def.atkRange > 200) {
-      desired = { x: focus.x + (focus.x > laneCenterX(team.id) ? -60 : 60), y: focus.y + def.atkRange * 0.62 };
-      // melee breathing room
+      desired = { x: focus.x + spreadX * 0.5 + (focus.x > laneCenterX(pl.team) ? -60 : 60), y: focus.y + def.atkRange * 0.62 };
       let nearestMelee = Infinity;
       for (const u of units) {
         const d0 = dist(u.pos, h.pos);
@@ -139,7 +143,7 @@ function micro(g: GameState, team: TeamState) {
       }
       if (nearestMelee < 110 && hpPct < 0.8) desired = { x: h.pos.x + (h.pos.x - focus.x), y: h.pos.y + 130 };
     } else {
-      desired = { x: focus.x, y: focus.y + 26 };
+      desired = { x: focus.x + spreadX * 0.35, y: focus.y + 26 };
     }
   }
   const dx = desired.x - h.pos.x, dy = desired.y - h.pos.y;
@@ -156,27 +160,26 @@ function micro(g: GameState, team: TeamState) {
   const emergencyY = units.some(u => u.pos.y > 690);
   const laneVal = totalValue(units);
 
-  for (let slot = 0; slot < 4; slot++) {
-    if (g.t < h.cds[slot]) continue;
-    const ab = abilityOf(h, slot);
+  for (let slot2 = 0; slot2 < 4; slot2++) {
+    if (g.t < h.cds[slot2]) continue;
+    const ab = abilityOf(h, slot2);
     if (!ab || h.mana < ab.mana) continue;
-    if (slot === 3 && h.level < C.ULT_LEVEL) continue;
+    if (slot2 === 3 && h.level < C.ULT_LEVEL) continue;
 
     const p = ab.p;
     let cast = false;
 
-    if (slot === 3) {
-      // ultimates wait for a wave worth the glory
-      if (laneVal >= ai.ultThreshold || (emergencyY && laneVal >= ai.ultThreshold * 0.55) || (team.castleHp / team.castleMaxHp < 0.35 && units.length >= 4)) {
+    if (slot2 === 3) {
+      if (laneVal >= ai.ultThreshold || (emergencyY && laneVal >= ai.ultThreshold * 0.55) || (g.teams[pl.team].castleHp / g.teams[pl.team].castleMaxHp < 0.35 && units.length >= 4)) {
         switch (ab.kind) {
-          case 'beam': cast = true; break; // sweeps the whole lane anyway
+          case 'beam': cast = true; break;
           case 'transform': {
             const near = units.filter(u => dist(u.pos, h.pos) < 320).length;
             cast = near >= 3;
             break;
           }
           case 'summon': aimAt({ x: cl.pos.x, y: Math.min(cl.pos.y + 60, 700) }); cast = true; break;
-          case 'barrage': case 'mobileZone': aimAt(cl.pos); cast = true; break;
+          case 'barrage': case 'mobileZone': case 'callDown': aimAt(cl.pos); cast = true; break;
           case 'zone': aimAt(cl.pos); cast = cl.count >= 3; break;
           default: cast = true;
         }
@@ -197,7 +200,6 @@ function micro(g: GameState, team: TeamState) {
         }
         case 'zone': case 'wall': case 'callDown': case 'mobileZone': {
           if (cl.count >= 3 || cl.value >= 130 || emergencyY) {
-            // walls, roots and called strikes land a touch downstream to catch the march
             aimAt({ x: cl.pos.x, y: cl.pos.y + (ab.kind === 'wall' ? 70 : ab.kind === 'callDown' ? 45 : 18) });
             cast = true;
           }
@@ -218,7 +220,6 @@ function micro(g: GameState, team: TeamState) {
           break;
         }
         case 'dash': {
-          // escape hatch
           if (hpPct < 0.4 && units.some(u => dist(u.pos, h.pos) < 110)) {
             aimAt({ x: fp.x, y: fp.y });
             cast = true;
@@ -235,7 +236,7 @@ function micro(g: GameState, team: TeamState) {
       }
     }
     if (cast) {
-      team.input.cast[slot] = true;
+      input.cast[slot2] = true;
       break; // one spell per think — looks human, prevents mana dumps
     }
   }
@@ -243,81 +244,76 @@ function micro(g: GameState, team: TeamState) {
 
 // ------------------------------------------------------------------- macro
 
-function macro(g: GameState, team: TeamState) {
-  const ai = team.ai!;
-  const enemy = g.teams[1 - team.id];
+function macro(g: GameState, pl: PlayerState) {
+  const ai = pl.ai!;
+  const enemyTeam = g.teams[1 - pl.team];
   const t = g.t;
 
-  // rotate strategy
   if (t >= ai.strategyUntil) {
-    ai.strategy = pickStrategy(g, team);
+    ai.strategy = pickStrategy(g, pl);
     ai.strategyUntil = t + 75 + g.rng() * 35;
   }
 
-  // keep upgrades: the backbone of the build
-  const wantKeep2 = team.baseLevel === 1 && (t > 270 || team.income > 95);
-  const wantKeep3 = team.baseLevel === 2 && (t > 800 || team.income > 260);
-  const keepCost = C.KEEP_COSTS[team.baseLevel + 1] ?? Infinity;
+  const wantKeep2 = pl.baseLevel === 1 && (t > 270 || pl.income > 95);
+  const wantKeep3 = pl.baseLevel === 2 && (t > 800 || pl.income > 260);
+  const keepCost = C.KEEP_COSTS[pl.baseLevel + 1] ?? Infinity;
   let reserve = 70;
   if (wantKeep2 || wantKeep3) {
-    if (team.gold >= keepCost * ai.priceMult + 120) {
-      tryUpgradeKeep(g, team, ai.priceMult);
+    if (pl.gold >= keepCost * ai.priceMult + 120) {
+      tryUpgradeKeep(g, pl, ai.priceMult);
     } else {
-      // save toward it without strangling the war effort
       reserve += keepCost * 0.35;
     }
   }
 
-  // repair when the walls are crumbling
-  if (team.castleHp / team.castleMaxHp < 0.55 && team.gold > 450 && t >= team.repairReadyAt) {
-    tryRepair(g, team, ai.priceMult);
+  const myTeam = g.teams[pl.team];
+  if (myTeam.castleHp / myTeam.castleMaxHp < 0.55 && pl.gold > 450 && t >= pl.repairReadyAt) {
+    tryRepair(g, pl, ai.priceMult);
   }
 
-  // burst logic: when the defender is down, flood the gate
-  const enemyDown = enemy.hero.dead;
-  const enemyDesperate = enemy.castleHp / enemy.castleMaxHp < 0.32;
+  // burst logic: when defenders are down, flood the gate
+  const deadFoes = enemyTeam.players.filter(p => p.hero.dead).length;
+  const allDown = deadFoes === enemyTeam.players.length;
+  const enemyDesperate = enemyTeam.castleHp / enemyTeam.castleMaxHp < 0.32;
   let sendFrac = t < 300 ? 0.66 : t < 900 ? 0.52 : 0.58;
-  if (enemyDown || enemyDesperate) sendFrac = 1.0;
+  if (allDown || enemyDesperate) sendFrac = 1.0;
+  else if (deadFoes > 0) sendFrac += 0.18;
   if (g.twilightLevel > 0) sendFrac = Math.max(sendFrac, 0.8);
   sendFrac *= ai.sendMult;
 
   // sends FIRST — income is the engine of the war; items eat the leftovers
   const strat = STRATS[ai.strategy] ?? STRATS.swarm;
-  let budget = Math.max(0, (team.gold - reserve)) * sendFrac;
+  let budget = Math.max(0, (pl.gold - reserve)) * sendFrac;
   let idx = 0, safety = 0;
   while (budget > 0 && safety++ < 40) {
     const defId = strat.list[idx % strat.list.length];
     const u = UNIT_BY_ID[defId];
-    const eff = u.tier <= team.baseLevel ? defId : 'skeleton'; // locked tiers fall back to bones
+    const eff = u.tier <= pl.baseLevel ? defId : 'skeleton';
     const cost = UNIT_BY_ID[eff].cost * ai.priceMult;
-    if (cost > budget || cost > team.gold) break;
-    if (!trySend(g, team, eff, ai.priceMult)) break;
+    if (cost > budget || cost > pl.gold) break;
+    if (!trySend(g, pl, eff, ai.priceMult)) break;
     budget -= cost;
     idx++;
   }
 
-  // items: follow the build with what's left
-  buyItems(g, team);
+  buyItems(g, pl);
 
-  // spare gold becomes muscle
-  if (team.gold > 520) {
-    const h = team.hero;
-    const attr = HERO_BY_ID[h.defId].attr;
+  if (pl.gold > 520) {
+    const attr = HERO_BY_ID[pl.hero.defId].attr;
     const roll = g.rng();
     const key = roll < 0.5 ? attr : roll < 0.78 ? 'dmg' : 'armor';
-    tryBuyStat(g, team, key as any, ai.priceMult);
+    tryBuyStat(g, pl, key as any, ai.priceMult);
   }
 }
 
-function buyItems(g: GameState, team: TeamState) {
-  const ai = team.ai!;
-  const build = BUILDS[HERO_BY_ID[team.hero.defId].attr];
+function buyItems(g: GameState, pl: PlayerState) {
+  const ai = pl.ai!;
+  const build = BUILDS[HERO_BY_ID[pl.hero.defId].attr];
   if (ai.buildIndex >= build.length) return;
   const next = build[ai.buildIndex];
   const cost = (ITEM_BY_ID[next]?.cost ?? 9999) * ai.priceMult;
-  // always leave a cushion so the gate never goes hungry
-  if (team.gold < cost + 180) return;
-  if (tryBuyItem(g, team, next, ai.priceMult)) {
+  if (pl.gold < cost + 180) return;
+  if (tryBuyItem(g, pl, next, ai.priceMult)) {
     ai.buildIndex++;
     ai.lastBuyAt = g.t;
   }

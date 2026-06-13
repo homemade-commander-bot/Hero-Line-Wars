@@ -20,16 +20,29 @@ npm run build    # production build (tsc + vite) -> dist/
 npm run sim      # headless AI-vs-AI balance harness (see below)
 ```
 
+## Modes
+
+- **Duel (1v1)** — you against one enemy warlord.
+- **Warbands (3v3)** — you and two AI allies against three enemy commanders. Each commander has
+  their own gold, income, keep tier and barracks; the castle is shared by the team.
+
 ## The Loop
 
 1. **Send monsters** from the Barracks — they spawn in the *enemy's* lane and march on their castle.
-   Every send **permanently raises your income**, paid every 30 seconds.
+   Every send **permanently raises your income**, paid every 30 seconds. **Higher-tier monsters
+   return more income per gold**, so teching up is the economic play — but they cost more upfront and
+   a single leaked Stone Golem pays the defender 180g.
 2. **Defend your lane** — your hero fights everything the enemy sends. Kills pay bounty gold and XP.
+   Click anywhere to move (WC3 style); abilities aim at your cursor.
 3. **Spend gold** on:
-   - **The Forge** — eight honest items, and six *forged secrets* (see riddles below)
+   - **The Forge** — twelve honest items, and ten *forged secrets* (see riddles below).
+     Right-click an item to **sell** it (60% back; freshly-bought basics refund in full).
+     With a full bag you can still buy the piece that *completes* a recipe.
    - **The War Council** — repeatable stat training, castle repairs
-   - **Keep upgrades** (I → II → III) — unlock Tier 2/3 monsters, tougher castle, faster send gate
-4. **Raze the enemy castle** to win. Games run 15–45 minutes depending on how close the war is.
+   - **Keep upgrades** (I → II → III) — unlock Tier 2/3 monsters, faster send gate; the first
+     commander on the team to reach a tier also fortifies the shared castle
+4. **Scout the enemy** — every commander's portrait, level and item build shows in the top bar.
+5. **Raze the enemy castle** to win. Games run 15–45 minutes depending on how close the war is.
 
 ## Controls
 

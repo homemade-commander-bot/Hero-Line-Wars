@@ -202,6 +202,21 @@ kbd {
 .cs-bar .cs-text { position: absolute; inset: 0; text-align: center; font-size: 10.5px; line-height: 13px; color: #fff; text-shadow: 0 1px 2px #000; font-family: var(--font-body); }
 .cs-badges { font-size: 12px; margin-top: 2px; height: 16px; color: var(--gold-bright); }
 
+/* commander intel: portrait + level + live item build for each ally/enemy */
+.cs-intel { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.intel-commander {
+  display: flex; align-items: center; gap: 3px;
+  background: rgba(13, 10, 22, 0.6); border: 1px solid #2e2842;
+  border-radius: 6px; padding: 2px 5px 2px 2px; cursor: help;
+}
+.intel-commander canvas { border-radius: 4px; flex-shrink: 0; }
+.intel-commander .ic-lvl {
+  font-family: var(--font-head); font-weight: 700; font-size: 11px;
+  color: var(--gold-bright); min-width: 12px; text-align: center;
+}
+.intel-commander .ic-items { display: flex; gap: 1px; }
+.intel-commander .ic-items canvas { border-radius: 3px; }
+
 .top-center { text-align: center; }
 .top-gold { font-size: 21px; color: var(--gold-bright); font-weight: 700; text-shadow: 0 0 12px rgba(227, 179, 65, 0.4); }
 .top-income { font-size: 13px; color: #b9a8e8; }
@@ -272,14 +287,18 @@ kbd {
 .hb-right .hint { font-size: 12px; color: #6a6088; text-align: center; font-style: italic; }
 
 /* side panel */
+/* docked over the central chasm (dead space) so neither lane is hidden */
 #side-panel {
-  position: absolute; right: 0; top: 58px; bottom: 184px; width: 392px;
+  position: absolute; left: 50%; transform: translateX(-50%);
+  top: 64px; bottom: 190px; width: 384px;
   background: var(--panel);
-  border-left: 1px solid var(--panel-edge);
-  border-bottom: 1px solid var(--panel-edge);
-  border-radius: 0 0 0 14px;
+  border: 1px solid var(--panel-edge);
+  outline: 1px solid rgba(227, 179, 65, 0.18);
+  outline-offset: 2px;
+  border-radius: 12px;
   display: flex; flex-direction: column;
   z-index: 10;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
 }
 .sp-tabs { display: flex; }
 .sp-tab {

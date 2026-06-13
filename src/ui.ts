@@ -3,12 +3,12 @@
 // The canvas does the violence; this file does the bookkeeping.
 // ---------------------------------------------------------------------------
 
-import type { GameState, HeroState, TeamId, TeamState } from './types';
+import type { GameState, PlayerState, TeamId } from './types';
 import { C, DIFFICULTY, type Difficulty, xpNeed } from './data/constants';
 import { ABILITY_BY_ID, ATTR_COLOR, ATTR_LABEL, HEROES, HERO_BY_ID } from './data/heroes';
 import { UNITS, UNIT_BY_ID } from './data/units';
 import { BASIC_ITEMS, FORGED_ITEMS, ITEM_BY_ID } from './data/items';
-import { abilityOf, repairCost, statCost } from './engine';
+import { abilityOf, playerById, repairCost, sellValue, statCost } from './engine';
 import { abilityIconCanvas, heroPortraitCanvas, itemIconCanvas, unitIconCanvas } from './render';
 import { sfx } from './sfx';
 
@@ -74,28 +74,47 @@ export function toast(msg: string) {
 export interface MenuChoice {
   mode: 'pick' | 'random' | 'spectate';
   difficulty: Difficulty;
+  teamSize: 1 | 3;
 }
 
 export function initMenu(onChoose: (c: MenuChoice) => void) {
   let difficulty: Difficulty = (localStorage.getItem('hlw-diff') as Difficulty) || 'knight';
+  let teamSize: 1 | 3 = localStorage.getItem('hlw-teamsize') === '3' ? 3 : 1;
   const picker = $('diff-picker');
   picker.innerHTML = '';
   for (const key of ['squire', 'knight', 'warlord'] as Difficulty[]) {
     const d = DIFFICULTY[key];
     const b = el('button', `diff-btn${key === difficulty ? ' active' : ''}`, d.label);
+    b.dataset.group = 'diff';
     bindTooltip(b, () => `<div class="tt-title">${d.label}</div><div class="tt-body">${d.desc}</div>`);
     b.onclick = () => {
       difficulty = key;
       localStorage.setItem('hlw-diff', key);
-      picker.querySelectorAll('.diff-btn').forEach(x => x.classList.remove('active'));
+      picker.querySelectorAll('[data-group="diff"]').forEach(x => x.classList.remove('active'));
       b.classList.add('active');
       sfx.click();
     };
     picker.appendChild(b);
   }
-  $('btn-pick').onclick = () => { sfx.click(); onChoose({ mode: 'pick', difficulty }); };
-  $('btn-random').onclick = () => { sfx.click(); onChoose({ mode: 'random', difficulty }); };
-  $('btn-spectate').onclick = () => { sfx.click(); onChoose({ mode: 'spectate', difficulty }); };
+  // battle size picker
+  const sizeRow = $('size-picker');
+  sizeRow.innerHTML = '';
+  for (const [val, label, desc] of [[1, 'Duel · 1v1', 'You against one enemy warlord.'], [3, 'Warbands · 3v3', 'You and two AI allies against three enemy commanders. Shared castle, your own gold.']] as const) {
+    const b = el('button', `diff-btn${teamSize === val ? ' active' : ''}`, label);
+    b.dataset.group = 'size';
+    bindTooltip(b, () => `<div class="tt-body">${desc}</div>`);
+    b.onclick = () => {
+      teamSize = val as 1 | 3;
+      localStorage.setItem('hlw-teamsize', String(val));
+      sizeRow.querySelectorAll('[data-group="size"]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      sfx.click();
+    };
+    sizeRow.appendChild(b);
+  }
+  $('btn-pick').onclick = () => { sfx.click(); onChoose({ mode: 'pick', difficulty, teamSize }); };
+  $('btn-random').onclick = () => { sfx.click(); onChoose({ mode: 'random', difficulty, teamSize }); };
+  $('btn-spectate').onclick = () => { sfx.click(); onChoose({ mode: 'spectate', difficulty, teamSize }); };
   $('btn-howto').onclick = () => { sfx.click(); $('howto-modal').classList.remove('hidden'); };
   $('btn-howto-close').onclick = () => { sfx.click(); $('howto-modal').classList.add('hidden'); };
 }
@@ -214,6 +233,7 @@ export interface HudActions {
   upgradeKeep(): void;
   repair(): void;
   useItem(slot: number): void;
+  sellItem(slot: number): void;
   togglePause(): void;
   toggleMute(): boolean;
   setSpeed(n: number): number;
@@ -222,6 +242,7 @@ export interface HudActions {
 
 interface HudRefs {
   castleFill: HTMLElement[]; castleText: HTMLElement[]; castleName: HTMLElement[]; castleBadges: HTMLElement[];
+  intelRows: HTMLElement[]; // per team: commander portraits + items
   gold: HTMLElement; income: HTMLElement; clock: HTMLElement; twilight: HTMLElement;
   hpFill: HTMLElement; hpText: HTMLElement; mpFill: HTMLElement; mpText: HTMLElement;
   level: HTMLElement; xp: HTMLElement; statsLine: HTMLElement;
@@ -229,7 +250,6 @@ interface HudRefs {
   itemSlots: HTMLElement[];
   queueBar: HTMLElement | null;
   portraitBox: HTMLElement;
-  deadVeil: HTMLElement | null;
   speedBtn: HTMLElement;
   muteBtn: HTMLElement;
 }
@@ -237,23 +257,35 @@ let R: HudRefs | null = null;
 let panelTab: 'barracks' | 'forge' | 'council' | null = null;
 let panelRefreshAt = 0;
 let hudGame: GameState | null = null;
-let hudTeam: TeamId = 0;
+let hudPlayerId = 0;
 let hudActions: HudActions | null = null;
 let spectate = false;
+let intelSig = ['', ''];
 
 const ABILITY_KEYS = ['Q', 'E', 'F', 'R'];
 
-export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, isSpectate: boolean) {
-  hudGame = g; hudTeam = playerTeam; hudActions = actions; spectate = isSpectate;
+function hudPlayer(): PlayerState {
+  return playerById(hudGame!, hudPlayerId);
+}
+
+export function buildHud(g: GameState, playerId: number, actions: HudActions, isSpectate: boolean) {
+  hudGame = g; hudPlayerId = playerId; hudActions = actions; spectate = isSpectate;
   panelTab = null;
+  intelSig = ['', ''];
+  lastItemSig = '';
   $('side-panel').classList.add('hidden');
   $('pause-veil').classList.add('hidden');
+
+  const me = hudPlayer();
+  const hero = me.hero;
+  const hdef = HERO_BY_ID[hero.defId];
 
   // ----------------------------------------------------------- top bar
   const top = $('hud-top');
   top.innerHTML = '';
-  const refs: Partial<HudRefs> = { castleFill: [], castleText: [], castleName: [], castleBadges: [], abSlots: [], itemSlots: [] };
+  const refs: Partial<HudRefs> = { castleFill: [], castleText: [], castleName: [], castleBadges: [], intelRows: [], abSlots: [], itemSlots: [] };
 
+  const sides: HTMLElement[] = [];
   for (const team of [0, 1] as TeamId[]) {
     const cs = el('div', 'castle-status');
     const name = el('div', 'cs-name');
@@ -266,13 +298,14 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
     cs.appendChild(bar);
     const badges = el('div', 'cs-badges');
     cs.appendChild(badges);
+    const intel = el('div', 'cs-intel');
+    cs.appendChild(intel);
     refs.castleFill![team] = fill;
     refs.castleText![team] = txt;
     refs.castleName![team] = name;
     refs.castleBadges![team] = badges;
-    if (team === 0) top.appendChild(cs);
-    else { /* appended after center */ }
-    if (team === 1) (top as any)._right = cs;
+    refs.intelRows![team] = intel;
+    sides[team] = cs;
   }
 
   const center = el('div', 'top-center');
@@ -281,12 +314,14 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
   const clock = el('div', 'top-clock');
   const twilight = el('div', 'top-twilight');
   center.append(gold, income, clock, twilight);
-  top.appendChild(center);
-  top.appendChild((top as any)._right);
   refs.gold = gold;
   refs.income = income;
   refs.clock = clock;
   refs.twilight = twilight;
+
+  top.appendChild(sides[0]);
+  top.appendChild(center);
+  top.appendChild(sides[1]);
 
   const btns = el('div', 'top-buttons');
   const speedBtn = el('button', 'btn btn-tiny', '1×');
@@ -306,9 +341,6 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
   // --------------------------------------------------------- bottom bar
   const bottom = $('hud-bottom');
   bottom.innerHTML = '';
-  const me = g.teams[playerTeam];
-  const hero = me.hero;
-  const hdef = HERO_BY_ID[hero.defId];
 
   const pbox = el('div', 'hb-portrait');
   pbox.appendChild(heroPortraitCanvas(hero.defId, 96));
@@ -348,7 +380,7 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
     const veil = el('div', 'cd-veil hidden');
     slot.appendChild(veil);
     bindTooltip(slot, () => {
-      const a = ABILITY_BY_ID[hero.loadout[i]];
+      const a = ABILITY_BY_ID[hudPlayer().hero.loadout[i]];
       return `<div class="tt-title">${a.name}</div><div class="tt-sub">${a.cat}${i === 3 ? ' · unlocks at level ' + C.ULT_LEVEL : ''}</div>` +
         `<div class="tt-body">${a.desc}</div><div class="tt-meta">${a.cd}s cooldown · ${a.mana} mana · key <b>${ABILITY_KEYS[i]}</b></div>`;
     });
@@ -362,6 +394,7 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
     const s = el('div', 'item-slot');
     s.appendChild(el('div', 'key', String(i + 1)));
     s.onclick = () => actions.useItem(i);
+    s.oncontextmenu = (ev) => { ev.preventDefault(); actions.sellItem(i); };
     items.appendChild(s);
     refs.itemSlots!.push(s);
   }
@@ -375,12 +408,11 @@ export function buildHud(g: GameState, playerTeam: TeamId, actions: HudActions, 
   const bCouncil = el('button', 'btn', '♜ War Council <kbd>V</kbd>');
   bCouncil.onclick = () => { sfx.click(); togglePanel('council'); };
   right.append(bBar, bForge, bCouncil);
-  right.appendChild(el('div', 'hint', spectate ? 'Watching the war unfold…' : 'Send monsters. Grow rich. Hold the line.'));
+  right.appendChild(el('div', 'hint', spectate ? 'Watching the war unfold…' : 'Click to move. Send monsters. Grow rich.'));
   bottom.appendChild(right);
 
   R = refs as HudRefs;
   R.queueBar = null;
-  R.deadVeil = null;
 }
 
 export function togglePanel(tab: 'barracks' | 'forge' | 'council') {
@@ -402,7 +434,7 @@ export function currentPanel() { return panelTab; }
 
 function renderPanel() {
   const g = hudGame!;
-  const me = g.teams[hudTeam];
+  const me = hudPlayer();
   const actions = hudActions!;
   const panel = $('side-panel');
   panel.innerHTML = '';
@@ -443,7 +475,7 @@ function renderPanel() {
           `<div class="tt-title">${u.name}</div>` +
           `<div class="tt-sub">Tier ${u.tier}${u.flying ? ' · Flying' : ''}${u.legendary ? ' · LEGENDARY' : ''}</div>` +
           `<div class="tt-body">${u.trait}</div>` +
-          `<div class="tt-meta">${u.hp} hp · ${u.dmg} dmg · cost ${u.cost}g · <span style="color:#7df3a0">+${u.income} income</span><br/>Click to send · Shift-click ×5</div>`);
+          `<div class="tt-meta">${u.hp} hp · ${u.dmg} dmg · cost ${u.cost}g · <span style="color:#7df3a0">+${u.income} income (${(u.income / u.cost * 100).toFixed(1)}g per 100g)</span><br/>Click to send · Shift-click ×5</div>`);
         card.onclick = (ev) => {
           if (locked) { toast(`Requires Keep ${'I'.repeat(tier)}`); return; }
           actions.send(u.id, ev.shiftKey ? 5 : 1);
@@ -457,13 +489,12 @@ function renderPanel() {
   if (panelTab === 'forge') {
     const goldLine = el('div', 'sp-gold');
     body.appendChild(goldLine);
-    R!.queueBar = goldLine; // reuse the live-update slot
+    R!.queueBar = goldLine;
     const grid = el('div', 'shop-grid');
     const myItems = me.hero.items.filter(Boolean).map(i => i!.defId);
     for (const it of BASIC_ITEMS) {
       const card = el('div', 'shop-item');
       card.dataset.item = it.id;
-      // "the forge hums" — you hold a sibling piece of something greater
       const hums = FORGED_ITEMS.some(f =>
         f.components!.includes(it.id) &&
         f.components!.some(c => c !== it.id && myItems.includes(c)));
@@ -484,7 +515,7 @@ function renderPanel() {
     const book = el('div', 'riddle-book');
     book.appendChild(el('h4', undefined, "⚒ THE FORGEMASTER'S RIDDLES"));
     for (const f of FORGED_ITEMS) {
-      const solved = g.discovered[hudTeam].includes(f.id);
+      const solved = g.discovered[me.team].includes(f.id);
       const row = el('div', `riddle${solved ? ' solved' : ''}`);
       const icon = el('div', 'r-icon');
       if (solved) icon.appendChild(itemIconCanvas(f, 34));
@@ -506,17 +537,17 @@ function renderPanel() {
   if (panelTab === 'council') {
     R!.queueBar = null;
     const keep = el('div', 'keep-card');
-    keep.appendChild(el('h4', undefined, `KEEP ${'I'.repeat(me.baseLevel)}`));
+    keep.appendChild(el('h4', undefined, `YOUR KEEP ${'I'.repeat(me.baseLevel)}`));
     if (me.baseLevel < 3) {
       const next = me.baseLevel + 1;
       keep.appendChild(el('div', 'kc-desc',
-        `Upgrade to Keep ${'I'.repeat(next)}: unlock <b>Tier ${'I'.repeat(next)}</b> monsters, +${C.KEEP_HP_BONUS[next]} castle hp ` +
-        `(+${C.KEEP_HEAL[next]} restored), stronger castle archers, faster send gate.`));
+        `Upgrade to Keep ${'I'.repeat(next)}: unlock <b>Tier ${'I'.repeat(next)}</b> monsters and a faster gate. ` +
+        `The first commander on the team to reach a tier also adds +${C.KEEP_HP_BONUS[next]} castle hp (+${C.KEEP_HEAL[next]} restored) and sharper castle archers.`));
       const b = el('button', 'btn btn-primary', `Upgrade — ${C.KEEP_COSTS[next]}g`);
       b.onclick = () => actions.upgradeKeep();
       keep.appendChild(b);
     } else {
-      keep.appendChild(el('div', 'kc-desc', 'The Keep stands at its full height. The gate hungers.'));
+      keep.appendChild(el('div', 'kc-desc', 'Your Keep stands at its full height. The gate hungers.'));
     }
     body.appendChild(keep);
 
@@ -549,7 +580,6 @@ function renderPanel() {
   }
 }
 
-/** Re-render the open panel (after purchases/upgrades change its contents). */
 export function refreshPanel() {
   if (panelTab) renderPanel();
 }
@@ -565,6 +595,7 @@ function statLabel(k: string, v: number): string {
     case 'regen': return `+${v} hp/s`;
     case 'manaRegen': return `+${v} mana/s`;
     case 'cdr': return `+${Math.round(v * 100)}% cdr`;
+    case 'lifesteal': return `+${Math.round(v * 100)}% lifesteal`;
     default: return `+${v} ${k}`;
   }
 }
@@ -575,11 +606,46 @@ function fmtTime(s: number): string {
   return `${m}:${String(ss).padStart(2, '0')}`;
 }
 
+// --------------------------------------------------- commander intel rows
+
+function intelSignature(g: GameState, team: TeamId): string {
+  return g.teams[team].players
+    .map(p => `${p.hero.defId}:${p.hero.level}:${p.hero.items.map(i => i?.defId ?? '_').join(',')}`)
+    .join('|');
+}
+
+function rebuildIntel(g: GameState, team: TeamId) {
+  const row = R!.intelRows[team];
+  row.innerHTML = '';
+  for (const p of g.teams[team].players) {
+    if (p.id === hudPlayerId) continue; // you know your own pockets
+    const box = el('div', 'intel-commander');
+    const port = heroPortraitCanvas(p.hero.defId, 26);
+    box.appendChild(port);
+    box.appendChild(el('span', 'ic-lvl', String(p.hero.level)));
+    const itemsBox = el('span', 'ic-items');
+    for (const it of p.hero.items) {
+      if (!it) continue;
+      itemsBox.appendChild(itemIconCanvas(ITEM_BY_ID[it.defId], 16));
+    }
+    box.appendChild(itemsBox);
+    const hdef = HERO_BY_ID[p.hero.defId];
+    bindTooltip(box, () => {
+      const pl = playerById(hudGame!, p.id);
+      const items = pl.hero.items.filter(Boolean).map(i => ITEM_BY_ID[i!.defId].name);
+      return `<div class="tt-title">${pl.name === 'You' ? hdef.name : pl.name} — ${hdef.name}</div>` +
+        `<div class="tt-sub">${team === (hudPlayer().team) ? 'Ally' : 'Enemy'} · level ${pl.hero.level} · Keep ${'I'.repeat(pl.baseLevel)}</div>` +
+        `<div class="tt-body">${items.length ? items.join('<br/>') : 'No items yet'}</div>`;
+    });
+    row.appendChild(box);
+  }
+}
+
 // per-frame HUD refresh
 let lastItemSig = '';
 export function updateHud(g: GameState) {
   if (!R) return;
-  const me = g.teams[hudTeam];
+  const me = hudPlayer();
   const hero = me.hero;
   const t = g.t;
 
@@ -588,22 +654,27 @@ export function updateHud(g: GameState) {
     const pct = Math.max(0, ts.castleHp / ts.castleMaxHp);
     R.castleFill[team].style.width = `${pct * 100}%`;
     R.castleText[team].textContent = `${Math.ceil(ts.castleHp)} / ${ts.castleMaxHp}`;
+    const teamIncome = ts.players.reduce((s, p) => s + p.income, 0);
     R.castleName[team].innerHTML =
-      `<span>${ts.name.toUpperCase()} · KEEP ${'I'.repeat(ts.baseLevel)}</span>` +
-      `<span style="color:#9a8fc4">income ${Math.round(ts.income)}</span>`;
+      `<span>${ts.name.toUpperCase()} · KEEP ${'I'.repeat(ts.maxKeep)}</span>` +
+      `<span style="color:#9a8fc4">income ${Math.round(teamIncome)}</span>`;
     R.castleBadges[team].textContent =
       `${ts.underdog ? "🔥 Underdog's Favor " : ''}${ts.lastStand ? '🏹 Last Stand ' : ''}`;
+    const sig = intelSignature(g, team);
+    if (sig !== intelSig[team]) {
+      intelSig[team] = sig;
+      rebuildIntel(g, team);
+    }
   }
 
   R.gold.textContent = `🪙 ${Math.floor(me.gold)}`;
   const next = Math.max(0, g.nextIncomeAt - t);
-  R.income.textContent = `+${Math.round(me.income * (me.underdog ? C.UNDERDOG_INCOME : 1))} in ${Math.ceil(next)}s`;
+  R.income.textContent = `+${Math.round(me.income * (g.teams[me.team].underdog ? C.UNDERDOG_INCOME : 1))} in ${Math.ceil(next)}s`;
   R.clock.textContent = fmtTime(t);
   R.twilight.textContent = g.twilightLevel > 0
     ? `✦ TWILIGHT ${g.twilightLevel}`
     : t > C.TWILIGHT_AT - 120 ? `twilight in ${fmtTime(C.TWILIGHT_AT - t)}` : '';
 
-  // hero vitals
   if (hero.d) {
     R.hpFill.style.width = `${(hero.hp / hero.d.maxHp) * 100}%`;
     R.hpText.textContent = `${Math.ceil(Math.max(0, hero.hp))} / ${Math.round(hero.d.maxHp)}`;
@@ -620,7 +691,6 @@ export function updateHud(g: GameState) {
     R.portraitBox.style.filter = hero.dead ? 'grayscale(1) brightness(0.55)' : '';
   }
 
-  // ability slots
   for (let i = 0; i < 4; i++) {
     const { veil, slot, mana } = R.abSlots[i];
     const ab = ABILITY_BY_ID[hero.loadout[i]];
@@ -638,7 +708,6 @@ export function updateHud(g: GameState) {
     mana.textContent = String(ab.mana);
   }
 
-  // item slots — rebuild icons only when inventory changes
   const sig = hero.items.map(i => i?.defId ?? '_').join(',');
   if (sig !== lastItemSig) {
     lastItemSig = sig;
@@ -654,18 +723,22 @@ export function updateHud(g: GameState) {
         veil.dataset.slot = String(i);
         box.appendChild(veil);
         bindTooltip(box, () => {
-          const stats = Object.entries(def.stats).map(([k, v]) => statLabel(k, v as number)).join(' · ');
-          return `<div class="tt-title">${def.name}</div>` +
-            `<div class="tt-sub">${def.tier === 'forged' ? '⚒ Forged' : 'Basic'}</div>` +
-            `<div class="tt-body">${stats}${def.procText ? '<br/>' + def.procText : ''}</div>` +
-            `<div class="tt-flavor">${def.desc}</div>`;
+          const def2 = ITEM_BY_ID[hudPlayer().hero.items[i]?.defId ?? it.defId];
+          const stats = Object.entries(def2.stats).map(([k, v]) => statLabel(k, v as number)).join(' · ');
+          const sv = sellValue(hudGame!, hudPlayer(), i);
+          const sellLine = sv
+            ? `<div class="tt-meta">Right-click to ${sv.undo ? `<b style="color:#7df3a0">undo</b> (refund ${sv.gold}g)` : `sell for ${sv.gold}g`}</div>`
+            : '';
+          return `<div class="tt-title">${def2.name}</div>` +
+            `<div class="tt-sub">${def2.tier === 'forged' ? '⚒ Forged' : 'Basic'}</div>` +
+            `<div class="tt-body">${stats}${def2.procText ? '<br/>' + def2.procText : ''}</div>` +
+            `<div class="tt-flavor">${def2.desc}</div>${sellLine}`;
         });
       } else {
         ttMap.delete(box);
       }
     }
   }
-  // item cooldown veils
   for (let i = 0; i < 6; i++) {
     const it = hero.items[i];
     const veil = R.itemSlots[i].querySelector('.cd-veil') as HTMLElement | null;
@@ -682,15 +755,14 @@ export function updateHud(g: GameState) {
     }
   }
 
-  // live bits inside the open panel
   if (panelTab && t >= panelRefreshAt) {
     panelRefreshAt = t + 0.25;
     const body = $('side-panel');
     if (panelTab === 'barracks' && R.queueBar) {
       const gate = C.SPAWN_INTERVAL[me.baseLevel] * Math.max(C.TWILIGHT_GATE_MIN, Math.pow(C.TWILIGHT_GATE, g.twilightLevel));
       R.queueBar.textContent = me.sendQueue.length > 0
-        ? `${me.sendQueue.length} monsters queued at the gate (one marches every ${gate.toFixed(2)}s)`
-        : `The gate stands ready (one marches every ${gate.toFixed(2)}s)`;
+        ? `${me.sendQueue.length} monsters queued at your gate (one marches every ${gate.toFixed(2)}s)`
+        : `Your gate stands ready (one marches every ${gate.toFixed(2)}s)`;
       body.querySelectorAll<HTMLElement>('.unit-card').forEach(card => {
         const u = UNIT_BY_ID[card.dataset.unit!];
         if (u && !card.classList.contains('locked')) card.classList.toggle('unaffordable', me.gold < u.cost);
@@ -734,23 +806,25 @@ export function showEnd(g: GameState, playerTeam: TeamId, isSpectate: boolean, o
   box.appendChild(el('div', 'end-sub', isSpectate
     ? `The war lasted ${fmtTime(g.t)}.`
     : won
-      ? `Duskreach lies in ruin. The Vale remembers its protector. (${fmtTime(g.t)})`
+      ? `Duskreach lies in ruin. The Vale remembers its protectors. (${fmtTime(g.t)})`
       : `Dawnhold has fallen. The Vale remembers that too. (${fmtTime(g.t)})`));
 
+  const sum = (team: TeamId, key: keyof PlayerState['stats']) =>
+    g.teams[team].players.reduce((s, p) => s + (p.stats[key] as number), 0);
+  const heroes = (team: TeamId) => g.teams[team].players.map(p => `${HERO_BY_ID[p.hero.defId].name} (${p.hero.level})`).join('<br/>');
+
+  const mine = playerTeam;
+  const foes = (1 - playerTeam) as TeamId;
   const table = el('table', 'end-stats');
-  const me = g.teams[playerTeam];
-  const foe = g.teams[(1 - playerTeam) as TeamId];
-  const h0 = HERO_BY_ID[me.hero.defId];
-  const h1 = HERO_BY_ID[foe.hero.defId];
-  table.innerHTML = `<tr><th></th><th>${isSpectate ? me.name : 'YOU'} — ${h0.name}</th><th>${isSpectate ? foe.name : 'ENEMY'} — ${h1.name}</th></tr>` +
+  table.innerHTML = `<tr><th></th><th>${isSpectate ? g.teams[mine].name : 'YOUR WARBAND'}</th><th>${isSpectate ? g.teams[foes].name : 'THE ENEMY'}</th></tr>` +
     [
-      ['Hero level', me.hero.level, foe.hero.level],
-      ['Monsters slain', me.stats.kills, foe.stats.kills],
-      ['Monsters sent', me.stats.sent, foe.stats.sent],
-      ['Final income', Math.round(me.income), Math.round(foe.income)],
-      ['Gold earned', Math.floor(me.stats.goldEarned), Math.floor(foe.stats.goldEarned)],
-      ['Castle damage dealt', Math.round(me.stats.dmgToCastle), Math.round(foe.stats.dmgToCastle)],
-      ['Leaks suffered', me.stats.leaks, foe.stats.leaks],
+      ['Champions', heroes(mine), heroes(foes)],
+      ['Monsters slain', sum(mine, 'kills'), sum(foes, 'kills')],
+      ['Monsters sent', sum(mine, 'sent'), sum(foes, 'sent')],
+      ['Final income', g.teams[mine].players.reduce((s, p) => s + Math.round(p.income), 0), g.teams[foes].players.reduce((s, p) => s + Math.round(p.income), 0)],
+      ['Gold earned', Math.floor(sum(mine, 'goldEarned')), Math.floor(sum(foes, 'goldEarned'))],
+      ['Castle damage dealt', Math.round(sum(mine, 'dmgToCastle')), Math.round(sum(foes, 'dmgToCastle'))],
+      ['Leaks suffered', sum(mine, 'leaks'), sum(foes, 'leaks')],
     ].map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
   box.appendChild(table);
 
