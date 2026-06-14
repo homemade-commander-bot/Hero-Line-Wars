@@ -50,6 +50,19 @@ export const C = {
   VOLLEY_DMG: 45,
   VOLLEY_Y: 540, // volley hits units below this y
 
+  // The Clash — periodic team-vs-team arena duel. Heroes are pulled to the
+  // chasm bridge, fight hero-vs-hero, the victors are rewarded, all return.
+  CLASH_FIRST: 200, // first clash ~3:20
+  CLASH_PERIOD: 200, // every ~3:20 after
+  CLASH_WARN: 6, // countdown before heroes are summoned
+  CLASH_DUR: 32, // max arena duration
+  CLASH_ARENA: { x: 800, y: 470, r: 220 },
+  CLASH_WIN_GOLD: 90, // gold to each winning commander
+  CLASH_KO_GOLD: 45, // gold for a knockout
+  CLASH_VICTOR_DUR: 45, // winning team's buff duration
+  CLASH_VICTOR_INCOME: 1.2, // +20% income while it lasts
+  CLASH_VICTOR_DMG: 0.15, // +15% hero damage
+
   // forced endgame: each Twilight stack escalates until somebody falls
   TWILIGHT_AT: 35 * 60,
   TWILIGHT_PERIOD: 60,
@@ -156,6 +169,14 @@ export function fountainPos(team: number) {
   const L = C.LANES[team];
   // fountain sits at the lane's outer edge near the castle
   return { x: team === 0 ? L.x0 + 55 : L.x1 - 55, y: C.FOUNTAIN };
+}
+export function clampToArena(p: { x: number; y: number }) {
+  const a = C.CLASH_ARENA;
+  const dx = p.x - a.x, dy = p.y - a.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= a.r - 14) return { x: p.x, y: p.y };
+  const k = (a.r - 14) / (d || 1);
+  return { x: a.x + dx * k, y: a.y + dy * k };
 }
 export function xpNeed(level: number) {
   return C.XP_BASE + C.XP_GROW * (level - 1);

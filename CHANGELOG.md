@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0] — 2026-06-14
+
+**The Clash** — a recurring team-vs-team arena event that interrupts the lane war.
+
+### Added
+- **The Clash.** Every ~200s the war horns sound: a 6-second warning, then both teams are swept into a blood-moon arena at the center of the map for a 32-second hero-only duel. The lanes freeze (no marching, no income, no tower fire) while every hero — *including the fallen, who are revived for the fight* — teleports in at full health with a brief spawn shield, then it's a straight brawl.
+  - **Scoring & rewards.** Knock an enemy hero out and they stay down for the rest of the Clash; first team to wipe the other (or lead on KOs when time runs out) wins. Winners take **+90 gold** each, every KO pays **+45 gold**, and the victors carry a **+15% damage "Clash Victor" buff** back to their lanes for 45s — a real swing in the macro game.
+  - **Full ability combat in the arena.** Cones, novas, leaps, stuns, channeled zones (starfall, black holes, anvils), and projectiles all retarget onto enemy heroes inside the ring; auto-attacks chase the nearest foe. The AI fights the Clash with dedicated micro — kiting on ranged heroes, closing on melee, and spending its learned offensive abilities.
+  - **Presentation.** Pulsing arena disc with rotating rune-rim, a giant warn countdown, a live **CLASH n — n** scoreboard with a depleting time bar, KO floaters, screen flash/shake, and horn/ult/defeat stingers.
+
+### Balance
+- Sim with Clashes enabled: **0 timeouts** across 30 matches; 1v1 median ~19.5 min (70% in the 15–45 window), 3v3 median ~25 min (100% in window). The lane freeze does not stall games — matches resolve cleanly and the gold swing rewards winning the brawl without ending the match on its own.
+
 ## [0.7.1] — 2026-06-14
 
 Small fixes from playtest feedback.

@@ -1684,6 +1684,31 @@ export class Renderer {
             this.shakeIt(6);
           }
           break;
+        case 'clashWarn':
+          this.showBanner('THE CLASH APPROACHES', 'Champions are summoned to the arena…', '#ff5e6b', 3);
+          break;
+        case 'clashStart': {
+          const a = C.CLASH_ARENA;
+          this.flashScreen('#ff5e6b', 0.35);
+          this.shakeIt(9);
+          this.showBanner('⚔ THE CLASH ⚔', 'Last warband standing takes the field', '#ff5e6b', 2.4);
+          this.ring({ x: a.x, y: a.y }, '#ff5e6b', 8);
+          break;
+        }
+        case 'clashKO':
+          this.float({ x: e.pos.x, y: e.pos.y - 26 }, 'K.O.!', '#ff5e6b', 20, true);
+          this.burst(e.pos, 22, '#ff5e6b', 'spark', 3.6);
+          this.burst(e.pos, 12, '#2b2030', 'smoke', 3);
+          this.shakeIt(6);
+          break;
+        case 'clashEnd':
+          if (e.winner >= 0) {
+            this.flashScreen(e.winner === playerTeam ? '#ffd86b' : '#1a1430', 0.3);
+            this.showBanner(`${e.winner === 0 ? 'DAWNHOLD' : 'DUSKREACH'} WINS THE CLASH`, 'Victors march back emboldened (+income, +damage)', e.winner === 0 ? '#7db8ff' : '#ff7a5c', 3);
+          } else {
+            this.showBanner('THE CLASH ENDS', 'A bloody draw — back to the lanes', '#cfc4a8', 2.4);
+          }
+          break;
         case 'proc': {
           if (e.itemId === 'stormfang' && e.targets) {
             for (let i = 0; i + 1 < e.targets.length; i++) {
@@ -1751,6 +1776,7 @@ export class Renderer {
       ctx.fillRect(0, 0, C.W, C.H);
     }
     this.drawMist(ctx, t);
+    if (g.clashPhase !== 'none') this.drawArena(ctx, g, t);
     this.drawTorches(ctx, t);
     this.drawPortals(ctx, g, t);
     this.drawMarkers(ctx, dt, playerTeam);
@@ -1953,6 +1979,72 @@ export class Renderer {
         ctx.fill();
         ctx.restore();
       }
+      ctx.restore();
+    }
+  }
+
+  drawArena(ctx: Ctx, g: GameState, t: number) {
+    const a = C.CLASH_ARENA;
+    const warn = g.clashPhase === 'warn';
+    // bloodmoon dusk over the whole field
+    ctx.save();
+    ctx.fillStyle = `rgba(120,20,40,${warn ? 0.04 + Math.sin(t * 4) * 0.02 : 0.12})`;
+    ctx.fillRect(0, 0, C.W, C.H);
+    // arena disc
+    const grad = ctx.createRadialGradient(a.x, a.y, 10, a.x, a.y, a.r);
+    grad.addColorStop(0, 'rgba(255,94,107,0.10)');
+    grad.addColorStop(0.7, 'rgba(120,20,40,0.14)');
+    grad.addColorStop(1, 'rgba(120,20,40,0)');
+    ctx.fillStyle = grad;
+    circle(ctx, a.x, a.y, a.r); ctx.fill();
+    // pulsing ring
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = '#ff5e6b';
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.5 + Math.sin(t * 3) * 0.2;
+    circle(ctx, a.x, a.y, a.r); ctx.stroke();
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 1.5;
+    circle(ctx, a.x, a.y, a.r - 8); ctx.stroke();
+    // rotating sigils on the rim
+    ctx.globalAlpha = 0.6;
+    ctx.fillStyle = '#ff8a96';
+    for (let i = 0; i < 12; i++) {
+      const ang = t * 0.5 + (i / 12) * Math.PI * 2;
+      ctx.fillRect(a.x + Math.cos(ang) * a.r - 2, a.y + Math.sin(ang) * a.r - 2, 4, 4);
+    }
+    ctx.restore();
+    // warn countdown
+    if (warn) {
+      const secs = Math.ceil(g.clashUntil - g.t);
+      ctx.save();
+      ctx.globalAlpha = 0.5 + Math.sin(t * 6) * 0.3;
+      ctx.fillStyle = '#ff5e6b';
+      ctx.font = '900 90px Cinzel, Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(secs), a.x, a.y);
+      ctx.textBaseline = 'alphabetic';
+      ctx.restore();
+    } else {
+      // KO scoreboard
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '900 24px Cinzel, Georgia, serif';
+      ctx.fillStyle = '#7db8ff';
+      ctx.fillText(String(g.clashScore[0]), a.x - 46, a.y - a.r + 22);
+      ctx.fillStyle = '#cfc4a8';
+      ctx.font = '700 16px Cinzel, Georgia, serif';
+      ctx.fillText('CLASH', a.x, a.y - a.r + 20);
+      ctx.font = '900 24px Cinzel, Georgia, serif';
+      ctx.fillStyle = '#ff7a5c';
+      ctx.fillText(String(g.clashScore[1]), a.x + 46, a.y - a.r + 22);
+      // time bar
+      const frac = Math.max(0, (g.clashUntil - g.t) / C.CLASH_DUR);
+      ctx.fillStyle = 'rgba(8,6,14,0.7)';
+      rr(ctx, a.x - 60, a.y - a.r + 30, 120, 5, 2); ctx.fill();
+      ctx.fillStyle = '#ff5e6b';
+      rr(ctx, a.x - 60, a.y - a.r + 30, 120 * frac, 5, 2); ctx.fill();
       ctx.restore();
     }
   }
@@ -2292,6 +2384,7 @@ export class Renderer {
 
   drawHero(ctx: Ctx, h: HeroState, g: GameState, t: number) {
     if (h.dead) {
+      if (g.clashPhase === 'active') return; // knocked out — out of the arena, no grave
       const fp = fountainPos(h.team);
       const remain = Math.max(0, h.respawnAt - g.t);
       ctx.save();

@@ -375,6 +375,10 @@ export type GameEvent =
   | { t: 'rune'; kind: 'bounty' | 'haste' | 'power'; pos: Vec; lane: TeamId }
   | { t: 'runeGet'; team: TeamId; player: number; kind: 'bounty' | 'haste' | 'power'; pos: Vec }
   | { t: 'forgeMastery'; team: TeamId; count: number; complete: boolean }
+  | { t: 'clashWarn'; secs: number }
+  | { t: 'clashStart' }
+  | { t: 'clashKO'; team: TeamId; pos: Vec; by: number }
+  | { t: 'clashEnd'; winner: TeamId | -1 }
   | { t: 'proc'; pos: Vec; itemId: string; targets?: Vec[] }
   | { t: 'win'; team: TeamId };
 
@@ -466,6 +470,12 @@ export interface GameState {
   towerVersion: [number, number]; // bumped per lane when towers change → flow rebuild
   nextWildAt: [number, number]; // next wild-creep spawn per lane
   nextRuneAt: number;
+  // The Clash — periodic arena PvP
+  clashPhase: 'none' | 'warn' | 'active';
+  clashUntil: number; // end time of the current phase
+  nextClashAt: number;
+  clashScore: [number, number]; // KOs scored by each team this clash
+  clashNum: number;
   nextIncomeAt: number;
   twilightLevel: number;
   nextTwilightAt: number;

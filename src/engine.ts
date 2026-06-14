@@ -10,7 +10,7 @@ import type {
   AbilityDef, Buff, GameEvent, GameState, HeroDerived, HeroState,
   PlayerState, SummonState, TeamId, TeamState, TowerState, UnitState, Vec, Zone, ZoneKind,
 } from './types';
-import { C, DIFFICULTY, armorReduction, castlePos, fountainPos, laneCenterX, laneOf, mulberry32, xpNeed } from './data/constants';
+import { C, DIFFICULTY, armorReduction, castlePos, clampToArena, fountainPos, laneCenterX, laneOf, mulberry32, xpNeed } from './data/constants';
 import { ABILITY_BY_ID, HERO_BY_ID, HEROES } from './data/heroes';
 import { UNIT_BY_ID, bounty } from './data/units';
 import { FORGED_ITEMS, ITEM_BY_ID, itemWorth } from './data/items';
@@ -207,6 +207,11 @@ export function newGame(opts: NewGameOpts): GameState {
     towerVersion: [0, 0],
     nextWildAt: [12, 14],
     nextRuneAt: C.RUNE_PERIOD,
+    clashPhase: 'none',
+    clashUntil: 0,
+    nextClashAt: C.CLASH_FIRST,
+    clashScore: [0, 0],
+    clashNum: 0,
     nextIncomeAt: C.INCOME_PERIOD,
     twilightLevel: 0,
     nextTwilightAt: C.TWILIGHT_AT,
@@ -403,7 +408,7 @@ export function healHero(h: HeroState, amount: number) {
   h.hp = Math.min(h.d.maxHp, h.hp + amount);
 }
 
-export function dmgHero(g: GameState, h: HeroState, raw: number, kind: 'phys' | 'magic', srcUnit?: UnitState): void {
+export function dmgHero(g: GameState, h: HeroState, raw: number, kind: 'phys' | 'magic', srcUnit?: UnitState, attacker?: HeroState): void {
   if (h.dead || g.over) return;
   const player = playerById(g, h.player);
   let amount = raw;
@@ -459,6 +464,20 @@ export function dmgHero(g: GameState, h: HeroState, raw: number, kind: 'phys' | 
     h.dead = true;
     h.buffs = [];
     h.channel = null;
+    player.input.moveTo = null;
+    if (g.clashPhase === 'active') {
+      // a knockout — scored, rewarded, no respawn until the clash ends
+      h.respawnAt = Infinity;
+      const koTeam = (attacker ? attacker.team : (1 - h.team)) as TeamId;
+      g.clashScore[koTeam]++;
+      if (attacker) {
+        const ap = playerById(g, attacker.player);
+        ap.gold += C.CLASH_KO_GOLD;
+        ap.stats.goldEarned += C.CLASH_KO_GOLD;
+      }
+      emit(g, { t: 'clashKO', team: h.team, pos: { ...h.pos }, by: koTeam });
+      return;
+    }
     h.respawnAt = g.t + C.RESPAWN_BASE + C.RESPAWN_PER_LVL * h.level;
     const enemy = g.teams[1 - h.team];
     const reward = Math.round((C.HERO_KILL_GOLD + 12 * h.level) / enemy.players.length);
@@ -468,7 +487,6 @@ export function dmgHero(g: GameState, h: HeroState, raw: number, kind: 'phys' | 
     }
     emit(g, { t: 'heroDeath', team: h.team, pos: { ...h.pos } });
     emit(g, { t: 'gold', team: enemy.id, amount: reward });
-    player.input.moveTo = null;
   }
 }
 
@@ -873,6 +891,8 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
   const rm = rankMult(ab.slot, h.ranks[ab.slot]); // rank investment scales the whole spell
   const dmg = abilityDamage(ab, h);
   const t = g.t;
+  const inClash = clashActive(g);
+  const clashFoes = (center: Vec, r: number) => inClash ? clashEnemyHeroes(g, pl.team, center, r) : [];
   const foes = () => unitsInLane(g, lane);
 
   switch (ab.kind) {
@@ -889,10 +909,25 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         const mult = def.tier >= 2 && p.tierBonus ? 1 + p.tierBonus : 1;
         dmgUnit(g, u, dmg * mult, 'magic', pl.team, { fromHero: h, isAbility: true });
       }
+      for (const eh of clashFoes(h.pos, p.range)) {
+        const ua = Math.atan2(eh.pos.y - h.pos.y, eh.pos.x - h.pos.x);
+        let da = Math.abs(ua - angle); if (da > Math.PI) da = 2 * Math.PI - da;
+        if (da <= p.arc / 2) hitHero(g, eh, dmg, 'magic', h);
+      }
       emit(g, { t: 'impact', pos: { ...h.pos }, r: p.range, theme: ab.theme, kind: 'cone', ang: angle, arc: p.arc });
       break;
     }
     case 'targetStun': {
+      if (inClash) {
+        let foe: HeroState | null = null, bd = Infinity;
+        for (const eh of clashEnemyHeroes(g, pl.team, h.pos, p.range)) { const d0 = dist(h.pos, eh.pos); if (d0 < bd) { bd = d0; foe = eh; } }
+        if (foe) {
+          heroStun(g, foe, p.stun);
+          emit(g, { t: 'impact', pos: { ...foe.pos }, r: 50, theme: ab.theme, kind: 'smite', to: { ...h.pos } });
+          hitHero(g, foe, dmg, 'magic', h);
+        }
+        break;
+      }
       let best: UnitState | null = null;
       for (const u of foes()) {
         if (dist(h.pos, u.pos) > p.range) continue;
@@ -921,6 +956,10 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         if (p.disarm) u.disarmUntil = Math.max(u.disarmUntil, t + p.disarm);
         if (p.dot) addDot(u, p.dot, p.dotDur ?? 3, t);
       }
+      for (const eh of clashFoes(h.pos, p.r)) {
+        hitHero(g, eh, dmg, 'magic', h);
+        if (!eh.dead && (p.air || p.disarm)) heroStun(g, eh, (p.air || p.disarm)!);
+      }
       emit(g, { t: 'impact', pos: { ...h.pos }, r: p.r, theme: ab.theme, kind: 'nova' });
       break;
     }
@@ -929,7 +968,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
       const len = Math.hypot(dx, dy) || 1;
       const reach = Math.min(len, p.dash);
       const from = { ...h.pos };
-      const to = clampToLane(lane, { x: h.pos.x + (dx / len) * reach, y: h.pos.y + (dy / len) * reach });
+      const to = (inClash ? clampToArena : (q: Vec) => clampToLane(lane, q))({ x: h.pos.x + (dx / len) * reach, y: h.pos.y + (dy / len) * reach });
       h.pos = to;
       if (p.line) {
         for (const u of foes()) {
@@ -940,6 +979,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
             dmgUnit(g, u, dmg * execute, 'magic', pl.team, { fromHero: h, isAbility: true });
           }
         }
+        for (const eh of clashFoes(to, (p.width ?? 60) / 2 + 30)) hitHero(g, eh, dmg, 'magic', h);
         emit(g, { t: 'impact', pos: from, r: 0, theme: ab.theme, kind: 'dashline', to: { ...to } });
         emit(g, { t: 'impact', pos: { ...to }, r: 40, theme: ab.theme, kind: 'dashend' });
       } else {
@@ -949,6 +989,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
             if (p.stun && u.hp > 0) u.ccUntil = Math.max(u.ccUntil, t + p.stun);
           }
         }
+        for (const eh of clashFoes(to, p.r)) { hitHero(g, eh, dmg, 'magic', h); if (!eh.dead && p.stun) heroStun(g, eh, p.stun); }
         if (p.zoneDps) {
           makeZone(g, pl, 'burn', { ...to }, p.zoneR, p.zoneDur, { dps: p.zoneDps * h.d.spellAmp }, ab.theme);
         }
@@ -1346,6 +1387,9 @@ function updateHero(g: GameState, pl: PlayerState, dt: number) {
     }
   }
 
+  const inClash = clashActive(g);
+  const clampPos = (p: Vec) => inClash ? clampToArena(p) : clampToLane(pl.team, p);
+
   // movement: keyboard vector overrides click orders; otherwise walk to moveTo
   if (!stunned) {
     let mx = pl.input.move.x, my = pl.input.move.y;
@@ -1357,7 +1401,7 @@ function updateHero(g: GameState, pl: PlayerState, dt: number) {
       if (d0 < 8) pl.input.moveTo = null;
       else { mx = dx / d0; my = dy / d0; }
     }
-    if (feared) {
+    if (feared && !inClash) {
       const dx = fp.x - h.pos.x, dy = fp.y - h.pos.y;
       const len = Math.hypot(dx, dy) || 1;
       mx = dx / len; my = dy / len;
@@ -1367,9 +1411,31 @@ function updateHero(g: GameState, pl: PlayerState, dt: number) {
     if (len > 0.01) {
       const ms = h.d.ms * (chilled ? 0.75 : 1);
       const step = Math.min(ms * dt, pl.input.moveTo ? Math.hypot(pl.input.moveTo.x - h.pos.x, pl.input.moveTo.y - h.pos.y) : ms * dt);
-      h.pos = clampToLane(pl.team, { x: h.pos.x + (mx / len) * step, y: h.pos.y + (my / len) * step });
+      h.pos = clampPos({ x: h.pos.x + (mx / len) * step, y: h.pos.y + (my / len) * step });
       if (Math.abs(mx) > 0.1) h.facing = mx > 0 ? 1 : -1;
     }
+  }
+
+  // CLASH: fight the nearest enemy hero directly
+  if (inClash && !stunned && !feared) {
+    if (t >= h.attackReadyAt) {
+      let foe: HeroState | null = null, bd = Infinity;
+      for (const p of g.teams[1 - pl.team].players) {
+        if (p.hero.dead) continue;
+        const d0 = dist(h.pos, p.hero.pos);
+        if (d0 < bd) { bd = d0; foe = p.hero; }
+      }
+      if (foe && bd <= h.d.range + 24) {
+        h.attackReadyAt = t + h.d.atkInterval;
+        h.attackAnimT = t;
+        h.facing = foe.pos.x >= h.pos.x ? 1 : -1;
+        const dmg = h.d.dmg;
+        if (h.d.range > 200) emit(g, { t: 'impact', pos: { ...foe.pos }, r: 0, theme: { c1: heroDef(h).palette.glow, c2: '#ffffff' }, kind: 'smite', to: { x: h.pos.x, y: h.pos.y - 18 } });
+        else emit(g, { t: 'impact', pos: { ...foe.pos }, r: 22, theme: { c1: heroDef(h).palette.glow, c2: '#ffffff' }, kind: 'cone', ang: Math.atan2(foe.pos.y - h.pos.y, foe.pos.x - h.pos.x), arc: 1.2 });
+        hitHero(g, foe, dmg, 'phys', h);
+      }
+    }
+    return; // no lane auto-attack in the arena
   }
 
   // auto-attack
@@ -1863,6 +1929,19 @@ function updateProjectiles(g: GameState, dt: number) {
     if (pr.boomerang === 0 && dist(pr.pos, pr.origin) > pr.maxDist) { pr.maxDist = -2; continue; }
     if (pr.pos.y < 40 || pr.pos.y > C.H - 20) { pr.maxDist = -2; continue; }
 
+    // CLASH: spell projectiles strike enemy heroes in the arena
+    if (g.clashPhase === 'active' && !pr.towerShot) {
+      for (const p of g.teams[1 - pr.owner].players) {
+        const eh = p.hero;
+        if (eh.dead || pr.hitIds.includes(-eh.player - 1)) continue;
+        if (dist(eh.pos, pr.pos) > pr.r + 16) continue;
+        pr.hitIds.push(-eh.player - 1);
+        hitHero(g, eh, pr.dmg, pr.kind, hero);
+        if (!pr.pierce && pr.boomerang === 0) { pr.maxDist = -2; break; }
+      }
+      if (pr.maxDist <= -1) continue;
+    }
+
     for (const u of g.units) {
       if (u.lane !== pr.owner || u.hp <= 0 || pr.hitIds.includes(u.id)) continue;
       if (dist(u.pos, pr.pos) > pr.r + 15) continue;
@@ -1899,12 +1978,18 @@ function updateZones(g: GameState, dt: number) {
   for (const z of g.zones) {
     const zPlayer = z.player;
     if (t >= z.until) {
+      const clashBurst = (dmgv: number, stun?: number) => {
+        if (g.clashPhase !== 'active' || zPlayer === undefined) return;
+        const attacker = playerById(g, zPlayer).hero;
+        for (const eh of clashEnemyHeroes(g, z.owner, z.pos, z.r)) { hitHero(g, eh, dmgv, 'magic', attacker); if (!eh.dead && stun) heroStun(g, eh, stun); }
+      };
       if (z.kind === 'collapse') {
         for (const u of g.units) {
           if (u.lane === z.owner && u.hp > 0 && dist(u.pos, z.pos) <= z.r) {
             dmgUnit(g, u, z.p.dmg, 'magic', z.owner, { killerPlayer: zPlayer });
           }
         }
+        clashBurst(z.p.dmg);
         emit(g, { t: 'impact', pos: { ...z.pos }, r: z.r, theme: z.theme, kind: 'collapse' });
       }
       if (z.kind === 'anvil') {
@@ -1914,6 +1999,7 @@ function updateZones(g: GameState, dt: number) {
             if (u.hp > 0 && z.p.stun) u.ccUntil = Math.max(u.ccUntil, g.t + z.p.stun);
           }
         }
+        clashBurst(z.p.dmg, z.p.stun);
         emit(g, { t: 'impact', pos: { ...z.pos }, r: z.r, theme: z.theme, kind: 'anvilhit' });
         if (z.p.fieldDur && zPlayer !== undefined) {
           makeZone(g, playerById(g, zPlayer), 'gravity', { ...z.pos }, z.r * 0.95, z.p.fieldDur, { slow: z.p.fieldSlow ?? 0.3, dps: z.p.fieldDps ?? 0 }, z.theme);
@@ -1925,6 +2011,7 @@ function updateZones(g: GameState, dt: number) {
             dmgUnit(g, u, z.p.burst, 'magic', z.owner, { killerPlayer: zPlayer });
           }
         }
+        clashBurst(z.p.burst);
         emit(g, { t: 'impact', pos: { ...z.pos }, r: z.r * 1.2, theme: z.theme, kind: 'collapse' });
       }
       continue;
@@ -1974,6 +2061,20 @@ function updateZones(g: GameState, dt: number) {
       if ((z.kind === 'beamfire' || z.kind === 'rattide') && z.p.igniteDps) addDot(u, z.p.igniteDps, z.p.igniteDur, t);
     }
 
+    // CLASH: damaging zones also scorch enemy heroes standing in them
+    if (g.clashPhase === 'active' && z.p.dps && zPlayer !== undefined) {
+      const attacker = playerById(g, zPlayer).hero;
+      for (const p of g.teams[1 - z.owner].players) {
+        const eh = p.hero;
+        if (eh.dead) continue;
+        let inside: boolean;
+        if (z.kind === 'wall') inside = Math.abs(eh.pos.y - z.pos.y) < 30 && Math.abs(eh.pos.x - z.pos.x) < z.p.len / 2;
+        else if (z.kind === 'beamfire' || z.kind === 'rattide') inside = Math.abs(eh.pos.y - z.pos.y) < z.p.width;
+        else inside = dist(eh.pos, z.pos) <= z.r;
+        if (inside) hitHero(g, eh, z.p.dps * dt, 'magic', attacker);
+      }
+    }
+
     if (!z.applied) {
       if (z.kind === 'root') {
         z.applied = true;
@@ -1996,7 +2097,11 @@ function updateZones(g: GameState, dt: number) {
       z.nextTick = t + z.p.interval;
       z.p.i = (z.p.i ?? 0) + 1;
       let ip: Vec | null = null;
-      if (z.p.smart) {
+      if (g.clashPhase === 'active') {
+        // in the arena, the barrage rains on enemy heroes
+        const foes = g.teams[1 - z.owner].players.filter(p => !p.hero.dead);
+        if (foes.length) ip = { ...foes[Math.floor(g.rng() * foes.length)].hero.pos };
+      } else if (z.p.smart) {
         let best: UnitState | null = null;
         for (const u of g.units) {
           if (u.lane !== z.owner || u.hp <= 0) continue;
@@ -2022,6 +2127,13 @@ function updateZones(g: GameState, dt: number) {
             dmgUnit(g, u, z.p.dmg, 'magic', z.owner, { killerPlayer: zPlayer });
             if (u.hp > 0 && z.p.slow) applySlow(u, z.p.slow, z.p.slowDur, t);
             if (u.hp > 0 && z.p.stun) u.ccUntil = Math.max(u.ccUntil, t + z.p.stun);
+          }
+        }
+        if (g.clashPhase === 'active' && zPlayer !== undefined) {
+          const attacker = playerById(g, zPlayer).hero;
+          for (const eh of clashEnemyHeroes(g, z.owner, ip, hitR)) {
+            hitHero(g, eh, z.p.dmg, 'magic', attacker);
+            if (!eh.dead && z.p.stun) heroStun(g, eh, z.p.stun);
           }
         }
         const kind = z.theme.shape === 'bolt' ? 'bolt' : z.theme.shape === 'pillar' ? 'pillar' : 'star';
@@ -2215,22 +2327,145 @@ function checkForgeMastery(g: GameState, team: TeamId) {
   }
 }
 
+// ------------------------------------------------------------------- the clash
+
+export function clashActive(g: GameState): boolean {
+  return g.clashPhase === 'active';
+}
+
+/** Enemy heroes of `team` standing within `r` of `center` (clash targeting). */
+function clashEnemyHeroes(g: GameState, team: TeamId, center: Vec, r: number): HeroState[] {
+  const out: HeroState[] = [];
+  for (const p of g.teams[1 - team].players) {
+    if (!p.hero.dead && dist(p.hero.pos, center) <= r) out.push(p.hero);
+  }
+  return out;
+}
+
+/** Hero-to-hero damage during the clash (handles KO scoring + attribution). */
+function hitHero(g: GameState, target: HeroState, raw: number, kind: 'phys' | 'magic', attacker: HeroState) {
+  if (target.dead || g.over) return;
+  dmgHero(g, target, raw, kind, undefined, attacker);
+}
+function heroStun(g: GameState, h: HeroState, dur: number) {
+  if (h.dead) return;
+  h.buffs.push({ id: 'clashstun', until: g.t + Math.min(dur, 1.6), stun: true, theme: 'stun' });
+}
+
+function startClash(g: GameState) {
+  g.clashPhase = 'active';
+  g.clashUntil = g.t + C.CLASH_DUR;
+  g.clashScore = [0, 0];
+  g.clashNum++;
+  const a = C.CLASH_ARENA;
+  for (const tid of [0, 1] as TeamId[]) {
+    const ps = g.teams[tid].players;
+    const n = ps.length;
+    ps.forEach((p, i) => {
+      const h = p.hero;
+      // everyone fights — revive the fallen for the duel
+      h.dead = false;
+      h.channel = null;
+      h.buffs = h.buffs.filter(b => !b.stun && !b.fear);
+      h.d = computeDerived(h);
+      h.hp = h.d.maxHp;
+      h.mana = h.d.maxMana;
+      const side = tid === 0 ? -1 : 1;
+      h.pos = {
+        x: a.x + side * (70 + (i % 2) * 26),
+        y: a.y + (i - (n - 1) / 2) * 74,
+      };
+      h.facing = side > 0 ? -1 : 1;
+      p.input.moveTo = null;
+      p.input.move = { x: 0, y: 0 };
+      // brief spawn-in protection
+      h.buffs.push({ id: 'clashguard', until: g.t + 1.2, theme: 'clashguard', shield: 60 });
+    });
+  }
+  emit(g, { t: 'clashStart' });
+}
+
+function endClash(g: GameState) {
+  const [s0, s1] = g.clashScore;
+  // surviving-hero tiebreak if KOs are equal
+  let alive0 = 0, alive1 = 0;
+  for (const p of g.teams[0].players) if (!p.hero.dead) alive0++;
+  for (const p of g.teams[1].players) if (!p.hero.dead) alive1++;
+  let winner: TeamId | -1 = -1;
+  if (s0 !== s1) winner = s0 > s1 ? 0 : 1;
+  else if (alive0 !== alive1) winner = alive0 > alive1 ? 0 : 1;
+
+  for (const tid of [0, 1] as TeamId[]) {
+    for (const p of g.teams[tid].players) {
+      const h = p.hero;
+      h.dead = false;
+      h.buffs = h.buffs.filter(b => b.id !== 'clashguard' && !b.stun && !b.fear);
+      const fp = fountainPos(tid);
+      h.pos = { x: fp.x, y: fp.y - 50 };
+      h.d = computeDerived(h);
+      h.hp = h.d.maxHp;
+      h.mana = h.d.maxMana;
+      h.respawnAt = 0;
+      h.attackReadyAt = g.t + 0.5;
+      p.input.moveTo = null;
+      if (winner === tid) {
+        p.gold += C.CLASH_WIN_GOLD;
+        p.stats.goldEarned += C.CLASH_WIN_GOLD;
+        h.buffs.push({ id: 'clashvictor', until: g.t + C.CLASH_VICTOR_DUR, dmgPct: C.CLASH_VICTOR_DMG, theme: 'clashvictor' });
+        h.d = computeDerived(h);
+      }
+    }
+  }
+  g.clashPhase = 'none';
+  g.nextClashAt = g.t + C.CLASH_PERIOD;
+  emit(g, { t: 'clashEnd', winner });
+}
+
+function updateClash(g: GameState) {
+  const t = g.t;
+  if (g.clashPhase === 'none') {
+    if (t >= g.nextClashAt) {
+      g.clashPhase = 'warn';
+      g.clashUntil = t + C.CLASH_WARN;
+      emit(g, { t: 'clashWarn', secs: C.CLASH_WARN });
+    }
+    return;
+  }
+  if (g.clashPhase === 'warn') {
+    if (t >= g.clashUntil) startClash(g);
+    return;
+  }
+  // active
+  if (t >= g.clashUntil) { endClash(g); return; }
+  // end early if a whole team is down
+  const down0 = g.teams[0].players.every(p => p.hero.dead);
+  const down1 = g.teams[1].players.every(p => p.hero.dead);
+  if (down0 || down1) endClash(g);
+}
+
 // ---------------------------------------------------------------------- step
 
 export function step(g: GameState, dt: number) {
   if (g.over) return;
   g.t += dt;
+  updateClash(g);
   updateEconomy(g, dt);
-  updateSpawns(g);
-  updateWildlife(g);
-  updateRunes(g);
+  const clash = g.clashPhase === 'active';
+  if (!clash) {
+    // the lanes pause during the arena duel — it's a clean interlude
+    updateSpawns(g);
+    updateWildlife(g);
+    updateRunes(g);
+  }
   for (const pl of allPlayers(g)) updateHero(g, pl, dt);
-  updateUnits(g, dt);
-  updateSummons(g, dt);
-  updateTowers(g, dt);
-  updateProjectiles(g, dt);
+  if (!clash) {
+    updateUnits(g, dt);
+    updateSummons(g, dt);
+    updateTowers(g, dt);
+  }
+  updateProjectiles(g, dt); // hero spell projectiles fly in the arena too
   updateZones(g, dt);
-  updateCastles(g);
+  if (!clash) updateCastles(g);
   if (g.units.length > 0) g.units = g.units.filter(u => u.hp > 0);
   g.summons = g.summons.filter(s => s.hp > 0 && g.t < s.until);
 }

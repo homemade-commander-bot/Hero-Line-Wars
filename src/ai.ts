@@ -10,7 +10,7 @@ import { HERO_BY_ID } from './data/heroes';
 import { UNIT_BY_ID } from './data/units';
 import { ITEM_BY_ID } from './data/items';
 import {
-  abilityOf, allocSkill, canAlloc, heroDef, tryBuyItem, tryBuyStat, tryRepair, trySend, tryUpgradeKeep,
+  abilityOf, allocSkill, canAlloc, clashActive, heroDef, tryBuyItem, tryBuyStat, tryRepair, trySend, tryUpgradeKeep,
 } from './engine';
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -133,9 +133,44 @@ function spendSkillPoints(g: GameState, pl: PlayerState) {
 
 // ------------------------------------------------------------------- micro
 
+function clashMicro(g: GameState, pl: PlayerState) {
+  const ai = pl.ai!;
+  const h = pl.hero;
+  const input = pl.input;
+  input.moveTo = null;
+  if (h.dead) { input.move = { x: 0, y: 0 }; return; }
+  const def = heroDef(h);
+  // nearest standing enemy hero
+  let foe: HeroState | null = null, bd = Infinity;
+  for (const p of g.teams[1 - pl.team].players) {
+    if (p.hero.dead) continue;
+    const d0 = dist(h.pos, p.hero.pos);
+    if (d0 < bd) { bd = d0; foe = p.hero; }
+  }
+  if (!foe) { input.move = { x: 0, y: 0 }; return; }
+  const jit = () => (g.rng() - 0.5) * 2 * ai.aimJitter;
+  input.aim = { x: foe.pos.x + jit(), y: foe.pos.y + jit() };
+  // positioning: ranged kite at distance, melee close in
+  const want = def.atkRange > 200 ? def.atkRange * 0.72 : 44;
+  const dx = foe.pos.x - h.pos.x, dy = foe.pos.y - h.pos.y, d = Math.hypot(dx, dy) || 1;
+  if (d > want + 12) input.move = { x: dx / d, y: dy / d };
+  else if (def.atkRange > 200 && d < want - 40) input.move = { x: -dx / d, y: -dy / d };
+  else input.move = { x: 0, y: 0 };
+  // one ability per think
+  for (let s = 0; s < 4; s++) {
+    if (h.ranks[s] < 1 || g.t < h.cds[s]) continue;
+    const ab = abilityOf(h, s);
+    if (!ab || h.mana < ab.mana || ab.kind === 'buildTower') continue;
+    const reach = (ab.p.range ?? ab.p.r ?? ab.p.dash ?? ab.p.dist ?? 320);
+    const always = ab.kind === 'buffSelf' || ab.kind === 'beam' || ab.kind === 'barrage' || ab.kind === 'mobileZone' || ab.kind === 'callDown' || ab.kind === 'summon' || ab.kind === 'dash';
+    if (always || bd <= reach + 40) { input.cast[s] = true; break; }
+  }
+}
+
 function micro(g: GameState, pl: PlayerState) {
   const ai = pl.ai!;
   const h = pl.hero;
+  if (clashActive(g)) { clashMicro(g, pl); return; }
   if (h.dead) return;
   const def = heroDef(h);
   const units = laneUnits(g, pl.team);

@@ -134,6 +134,21 @@ Ten things can be made this way. The recipes are never listed. The riddles are:
 
 (That last one wants something already forged…)
 
+## The Clash
+
+Roughly every 200 seconds the war horns sound. After a 6-second warning the lanes **freeze**
+— no marching, no income, no tower fire — and every hero, *including any who have fallen*, is
+swept into a blood-moon arena at the center of the map for a **32-second hero-only brawl**.
+Everyone arrives at full health behind a brief spawn shield, then it's a straight fight.
+
+- **Knockouts stick** — a downed hero is out for the rest of that Clash. First team to wipe the
+  other (or lead on KOs when the timer runs out) wins.
+- **Spoils** — each KO pays **+45 gold**, the winning side takes **+90 gold** apiece, and the
+  victors carry a **+15% damage** buff back to their lanes for 45 seconds. Winning the Clash is a
+  real macro swing — but it won't end the match on its own.
+- Every ability works in the arena (cones, novas, leaps, stuns, starfall, black holes,
+  projectiles all retarget onto enemy heroes), and the AI fights with dedicated arena micro.
+
 ## Comeback Mechanics
 
 Losing is not a death sentence — it's a discount:
