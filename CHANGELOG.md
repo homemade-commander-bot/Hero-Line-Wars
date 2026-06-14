@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.5.0] — 2026-06-13
+
+The "tower architect" patch: Tarvek reworked into a true tower-builder, plus an ability-visual fix.
+
+### Changed
+- **Tarvek the Wallwright fully reworked.** His abilities now build **one tower at a time, anywhere in your lane, on short cooldowns**, and the towers **stand permanently**. Pick a damage spire (Ballista/Splinter), an AoE anti-air coil (Tempest/Flame), and a slow pylon (Frost/Tar); the ultimate raises a single mega **Citadel of Ages**. Towers are **non-blocking** — units march on and slip around them (no more impassable maze).
+- **Towers scale with the owner, not the hero.** A tower's damage grows with Tarvek's spell-power and attack-damage items + War-Council training (and range with his level) — invest in your gear, your towers get stronger. Read live at fire time.
+- Towers cost **gold** to build (45–250g) on top of mana — a fortress competes with your war chest, the classic tower-defense tradeoff.
+- **Anti-air matters:** ground towers (Ballista/Flame) can't hit flyers; only the Tempest Coil and Citadel shoot air (+60% vs flyers). The AI now counters a tower wall — sending flyers when it lacks anti-air, massing volume when it doesn't.
+
+### Fixed
+- **Joruun's Static Field** now renders as an actual roiling **storm cloud with lightning strikes**, not generic gravity rings.
+- **Ability-ID collision bug:** Tarvek's Tempest tower shared the id `tempest` with Vyrel's ultimate, so that slot silently cast Vyrel's spell and built nothing. Renamed; audited all 11 heroes for duplicate ability ids (none remain).
+- Towers pay **half bounty** on kills — a strong defense no longer doubles as free income.
+
+### Balance
+- Reworked Tarvek opened at a 100% sim winrate (permanent free scaling defense = unbreakable wall + economy snowball). Fixed structurally: non-blocking towers, an 8-tower cap (Citadel limited to one), gold cost, halved tower bounty, anti-air counters, and trimmed damage/scaling. Now ~67% on small samples — strong but beatable (fly over a no-anti-air set, or overwhelm with volume). 1v1 sims timeout-free, all in the 15–45 min window (median ~22 min).
+- Deferred: the periodic team-vs-team "Clash"/boss event is still planned for a later patch.
+
 ## [0.4.0] — 2026-06-13
 
 The "maze patch": a tower-building champion with real pathfinding, lull-fillers, a viewport fix, and a forge-set team reward.

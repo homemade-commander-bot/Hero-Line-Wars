@@ -235,7 +235,7 @@ export interface UnitState {
 
 // ----------------------------------------------------------------------- towers
 
-export type TowerKind = 'spire' | 'flame' | 'bulwark' | 'glue' | 'bastion';
+export type TowerKind = 'ballista' | 'splinter' | 'frost' | 'tar' | 'tempest' | 'flame' | 'citadel';
 
 export interface TowerState {
   id: number;
@@ -246,11 +246,16 @@ export interface TowerState {
   r: number; // blocking radius (units path around this)
   hp: number;
   maxHp: number;
-  dmg: number;
-  range: number;
+  baseDmg: number; // scaled live by the owner's items + training at fire time
+  baseRange: number;
+  fireRate: number; // seconds between shots
+  splash: number; // 0 = single target; >0 = AoE radius
+  bonusAir: number; // extra damage fraction vs flyers (anti-air)
+  aura: boolean; // continuously slows everything in range (no projectile)
+  dot: number; // burn applied on hit/aura
+  slow: number; // fraction
   attackReadyAt: number;
-  slow: number; // fraction, for glue
-  until: number;
+  until: number; // Infinity for permanent
   born: number;
   theme: AbilityTheme;
 }
@@ -313,6 +318,7 @@ export interface Projectile {
   theme: AbilityTheme;
   ignite: number; // dps applied as dot on hit (skyfire)
   player?: number; // owning player's id
+  towerShot?: boolean; // fired by a tower — pays reduced bounty
 }
 
 // ---------------------------------------------------------------------- zones
@@ -320,7 +326,7 @@ export interface Projectile {
 export type ZoneKind =
   | 'burn' | 'gravity' | 'root' | 'pollen' | 'banner' | 'spore'
   | 'collapse' | 'wall' | 'tempest' | 'blackhole' | 'starfall' | 'beamfire'
-  | 'anvil' | 'sanctify' | 'smog' | 'rattide';
+  | 'anvil' | 'sanctify' | 'smog' | 'rattide' | 'storm';
 
 export interface Zone {
   id: number;

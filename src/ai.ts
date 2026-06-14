@@ -40,6 +40,10 @@ function pickStrategy(g: GameState, pl: PlayerState): string {
   // read a random enemy commander and counter them
   const foes = g.teams[1 - pl.team].players;
   const eDef = HERO_BY_ID[foes[Math.floor(g.rng() * foes.length)].hero.defId];
+  // scout the lane we attack for towers — flyers slip past ground-only towers
+  const enemyTowers = g.towers.filter(tw => tw.lane === (1 - pl.team) as TeamId);
+  const enemyAntiAir = enemyTowers.some(tw => tw.kind === 'tempest' || tw.kind === 'citadel');
+  const towerHeavy = enemyTowers.length >= 3;
   const pool = Object.entries(STRATS).filter(([, s]) => s.keep <= pl.baseLevel);
   const weights = pool.map(([name]) => {
     let w = 1;
@@ -51,6 +55,11 @@ function pickStrategy(g: GameState, pl: PlayerState): string {
       if (name === 'assassin' || name === 'dragons' || name === 'chill') w += 1.4;
     } else {
       if (name === 'swarm' || name === 'wolves' || name === 'bruise' || name === 'recycler') w += 1.2;
+    }
+    // counter a tower wall: fly over it if it can't shoot air, else drown it in numbers
+    if (towerHeavy) {
+      if (!enemyAntiAir && (name === 'assassin' || name === 'dragons')) w += 3.5;
+      else if (name === 'swarm' || name === 'recycler' || name === 'doom') w += 1.6;
     }
     if (name === 'doom' && pl.gold < 1400) w = 0;
     return Math.max(0.05, w);
@@ -236,13 +245,14 @@ function micro(g: GameState, pl: PlayerState) {
           break;
         }
         case 'buildTower': {
-          // build the maze: cap towers, place them mid-lane to lengthen the path
-          const myTowers = g.towers.filter(tw => tw.player === pl.id).length;
-          if (myTowers < 7 && (cl.count >= 2 || laneVal >= 80)) {
-            // alternate sides so the path zig-zags
-            const side = (myTowers % 2) ? 0.62 : 0.38;
+          // permanent towers: build a zig-zag maze steadily down the lane
+          const myTowers = g.towers.filter(tw => tw.player === pl.id && tw.kind !== 'citadel').length;
+          if (myTowers < 8) {
             const L = laneOf(pl.team);
-            aimAt({ x: L.x0 + (L.x1 - L.x0) * side, y: 300 + (myTowers % 3) * 130 });
+            const rows = 4;
+            const row = myTowers % rows;
+            const side = (Math.floor(myTowers / rows) + row) % 2 ? 0.66 : 0.34;
+            aimAt({ x: L.x0 + (L.x1 - L.x0) * side, y: 230 + row * 70 });
             cast = true;
           }
           break;

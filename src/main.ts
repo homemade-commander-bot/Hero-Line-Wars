@@ -383,4 +383,18 @@ requestAnimationFrame(frame);
 (window as any).__hlw = {
   get state() { return S; },
   start: startGame,
+  // drive the sim manually when rAF is throttled (headless preview)
+  tick(n = 60) {
+    if (!S) return 0;
+    const g = S.g;
+    for (let i = 0; i < n && !g.over; i++) {
+      for (const pl of allPlayers(g)) if (pl.ai) aiThink(g, pl);
+      step(g, C.DT);
+      const events = g.events; g.events = [];
+      if (events.length) { S.renderer.consume(events, g, S.viewTeam); }
+    }
+    S.renderer.draw(g, 0.016, S.viewTeam);
+    ui.updateHud(g);
+    return g.t;
+  },
 };

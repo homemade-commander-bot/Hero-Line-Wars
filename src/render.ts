@@ -1629,8 +1629,8 @@ export class Renderer {
           break;
         case 'tower':
           this.burst({ x: e.pos.x, y: e.pos.y + 6 }, 12, '#9aa7b8', 'smoke', 2);
-          this.ring({ x: e.pos.x, y: e.pos.y + 6 }, e.kind === 'bastion' ? '#ffcf5b' : '#cfd8e8', e.kind === 'bastion' ? 4 : 2.6);
-          if (e.kind === 'bastion') this.shakeIt(4);
+          this.ring({ x: e.pos.x, y: e.pos.y + 6 }, e.kind === 'citadel' ? '#ffcf5b' : '#cfd8e8', e.kind === 'citadel' ? 5 : 2.6);
+          if (e.kind === 'citadel') { this.shakeIt(5); this.flashScreen('#ffcf5b', 0.12); }
           break;
         case 'rune':
           this.burst(e.pos, 8, e.kind === 'bounty' ? '#ffd86b' : e.kind === 'haste' ? '#7df3df' : '#c5a8ff', 'spark', 2.4);
@@ -1925,55 +1925,109 @@ export class Renderer {
 
   drawTowers(ctx: Ctx, g: GameState, t: number) {
     for (const tw of g.towers) {
+      const c1 = tw.theme.c1, c2 = tw.theme.c2;
+      const big = tw.kind === 'citadel';
+      const recentFire = t - (tw.attackReadyAt - tw.fireRate) < 0.12;
       ctx.save();
       ctx.translate(tw.pos.x, tw.pos.y);
-      // ground footprint (shows the blocking radius units route around)
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = tw.theme.c1;
+      // ground footprint (the blocking radius units route around)
+      ctx.globalAlpha = 0.14;
+      ctx.fillStyle = c1;
       ctx.beginPath(); ctx.ellipse(0, 6, tw.r, tw.r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = 1;
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath(); ctx.ellipse(0, 8, tw.r * 0.8, tw.r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
-      const c1 = tw.theme.c1, c2 = tw.theme.c2;
-      if (tw.kind === 'bulwark') {
-        // a squat stone pylon
-        plate(ctx, [[-tw.r * 0.55, 6], [tw.r * 0.55, 6], [tw.r * 0.4, -tw.r * 0.7], [-tw.r * 0.4, -tw.r * 0.7]], '#5a5a64');
-        plate(ctx, [[-tw.r * 0.4, -tw.r * 0.7], [tw.r * 0.4, -tw.r * 0.7], [0, -tw.r]], '#6a6a74');
-        ctx.strokeStyle = c1; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.7;
-        ctx.beginPath(); ctx.moveTo(-tw.r * 0.3, -2); ctx.lineTo(tw.r * 0.3, -2); ctx.stroke();
-        ctx.globalAlpha = 1;
-      } else if (tw.kind === 'glue') {
-        plate(ctx, [[-tw.r * 0.5, 6], [tw.r * 0.5, 6], [tw.r * 0.32, -tw.r * 0.7], [-tw.r * 0.32, -tw.r * 0.7]], '#3a3320');
-        // dripping tar
-        ctx.fillStyle = c2;
-        for (let i = -1; i <= 1; i++) {
-          const dy = (t * 20 + i * 7) % 14;
-          circle(ctx, i * 5, -4 + dy, 1.6); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, 8, tw.r * 0.82, tw.r * 0.34, 0, 0, Math.PI * 2); ctx.fill();
+
+      // shared stone base
+      const baseW = tw.r * (big ? 0.62 : 0.5);
+      plate(ctx, [[-baseW, 7], [baseW, 7], [baseW * 0.7, -tw.r * 0.5], [-baseW * 0.7, -tw.r * 0.5]], '#4a4438');
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-baseW * 0.8, -1); ctx.lineTo(baseW * 0.8, -1); ctx.stroke();
+
+      switch (tw.kind) {
+        case 'ballista': case 'splinter': {
+          // a crossbow turret on a post
+          const topY = -tw.r * 0.7;
+          plate(ctx, [[-baseW * 0.45, -tw.r * 0.5], [baseW * 0.45, -tw.r * 0.5], [baseW * 0.32, topY], [-baseW * 0.32, topY]], '#5a5448');
+          ctx.save(); ctx.translate(0, topY);
+          // bow arms
+          ctx.strokeStyle = '#6a5a3a'; ctx.lineWidth = 2.4; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(-8, -4); ctx.quadraticCurveTo(0, -1, 8, -4); ctx.stroke();
+          ctx.strokeStyle = c1; ctx.lineWidth = 1.4;
+          ctx.beginPath(); ctx.moveTo(-8, -4); ctx.lineTo(8, -4); ctx.stroke(); // string
+          limb(ctx, 0, -2, 0, -10, 1.6, recentFire ? '#fff' : c1); // loaded bolt
+          if (recentFire) glowCircle(ctx, 0, -8, 10, c1, 0.7);
+          ctx.restore();
+          break;
         }
-        glowCircle(ctx, 0, -tw.r * 0.7, 8, c1, 0.3);
-      } else {
-        // spire / flame / bastion — a turret with a glowing emitter
-        const big = tw.kind === 'bastion';
-        plate(ctx, [[-tw.r * 0.5, 6], [tw.r * 0.5, 6], [tw.r * 0.36, -tw.r * 0.6], [-tw.r * 0.36, -tw.r * 0.6]], '#4a4438');
-        // battlements
-        ctx.fillStyle = '#5a5448';
-        for (let i = -2; i <= 2; i++) ctx.fillRect(i * tw.r * 0.17 - 2, -tw.r * 0.72, 4, tw.r * 0.16);
-        // emitter
-        const pulse = 0.7 + Math.sin(t * 5 + tw.id) * 0.3;
-        glowCircle(ctx, 0, -tw.r * 0.6, (big ? 16 : 10) * pulse, c1, 0.8);
-        ctx.fillStyle = c1; circle(ctx, 0, -tw.r * 0.6, big ? 5 : 3.4); ctx.fill();
-        if (big) {
-          // bastion banner
-          limb(ctx, 0, -tw.r * 0.8, 0, -tw.r * 1.25, 1.6, '#3a3024');
-          plate(ctx, [[0, -tw.r * 1.25], [16 + Math.sin(t * 3) * 2, -tw.r * 1.18], [0, -tw.r * 1.08]], c2);
+        case 'frost': case 'tar': {
+          // a crystal/cauldron pylon with an aura ring
+          const col = tw.kind === 'frost' ? '#a8e0ff' : '#caa23a';
+          ctx.globalAlpha = 0.12 + Math.sin(t * 2 + tw.id) * 0.05;
+          ctx.fillStyle = col;
+          ctx.beginPath(); ctx.ellipse(0, 4, tw.r * 0.95, tw.r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.globalAlpha = 1;
+          if (tw.kind === 'frost') {
+            // ice crystal
+            plate(ctx, [[0, -tw.r * 0.95], [6, -tw.r * 0.45], [0, -tw.r * 0.2], [-6, -tw.r * 0.45]], col);
+            glowCircle(ctx, 0, -tw.r * 0.55, 9, col, 0.5);
+            for (let i = 0; i < 3; i++) { const a = t + i * 2.1; ctx.fillStyle = '#dff6ff'; circle(ctx, Math.cos(a) * tw.r * 0.7, 2 + Math.sin(a) * tw.r * 0.34, 1.2); ctx.fill(); }
+          } else {
+            // bubbling tar cauldron
+            plate(ctx, [[-7, -tw.r * 0.5], [7, -tw.r * 0.5], [9, -tw.r * 0.15], [-9, -tw.r * 0.15]], '#3a2e10');
+            ctx.fillStyle = col;
+            for (let i = -1; i <= 1; i++) circle(ctx, i * 4, -tw.r * 0.32 + Math.sin(t * 4 + i) * 1.5, 1.8), ctx.fill();
+          }
+          break;
         }
-        // muzzle flash when freshly fired
-        if (t - (tw.attackReadyAt - (tw.kind === 'flame' ? 1.1 : big ? 0.7 : 0.85)) < 0.12) {
-          glowCircle(ctx, 0, -tw.r * 0.6, 14, '#ffffff', 0.6);
+        case 'tempest': {
+          // a coil crackling with caged lightning
+          plate(ctx, [[-baseW * 0.4, -tw.r * 0.5], [baseW * 0.4, -tw.r * 0.5], [baseW * 0.28, -tw.r * 0.75], [-baseW * 0.28, -tw.r * 0.75]], '#3a3450');
+          const orbY = -tw.r * 0.85;
+          glowCircle(ctx, 0, orbY, 11 + Math.sin(t * 6) * 2, c1, 0.8);
+          ctx.fillStyle = c1; circle(ctx, 0, orbY, 4); ctx.fill();
+          // arcing tendrils
+          ctx.strokeStyle = '#dff'; ctx.lineWidth = 1; ctx.globalAlpha = 0.8;
+          for (let i = 0; i < 3; i++) {
+            const a = t * 4 + i * 2.1;
+            ctx.beginPath(); ctx.moveTo(0, orbY);
+            ctx.lineTo(Math.cos(a) * 7, orbY + Math.sin(a) * 7);
+            ctx.lineTo(Math.cos(a + 1) * 11, orbY + Math.sin(a + 1) * 6);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          break;
+        }
+        case 'flame': {
+          plate(ctx, [[-baseW * 0.42, -tw.r * 0.5], [baseW * 0.42, -tw.r * 0.5], [baseW * 0.3, -tw.r * 0.72], [-baseW * 0.3, -tw.r * 0.72]], '#4a2a1a');
+          const fy = -tw.r * 0.8;
+          glowCircle(ctx, 0, fy, 12, '#ff7733', 0.7);
+          ctx.fillStyle = '#ffb347';
+          for (let i = 0; i < 4; i++) { const a = t * 3 + i; ctx.beginPath(); ctx.ellipse(Math.sin(a) * 3, fy - Math.abs(Math.cos(a)) * 4, 2, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+          break;
+        }
+        case 'citadel': {
+          // a fortress-cannon
+          plate(ctx, [[-baseW, 7], [baseW, 7], [baseW * 0.8, -tw.r * 0.7], [-baseW * 0.8, -tw.r * 0.7]], '#55504a');
+          ctx.fillStyle = '#6a635a';
+          for (let i = -3; i <= 3; i++) ctx.fillRect(i * baseW * 0.24 - 3, -tw.r * 0.78, 6, tw.r * 0.12); // battlements
+          // twin cannons
+          const cy = -tw.r * 0.55;
+          ctx.fillStyle = '#3a342e';
+          ctx.fillRect(-12, cy - 4, 24, 9);
+          const pulse = 0.7 + Math.sin(t * 4) * 0.3;
+          glowCircle(ctx, 0, cy, 16 * pulse, c1, 0.8);
+          ctx.fillStyle = c1; circle(ctx, 0, cy, 6); ctx.fill();
+          // banner
+          limb(ctx, 0, -tw.r * 0.8, 0, -tw.r * 1.2, 1.8, '#3a3024');
+          plate(ctx, [[0, -tw.r * 1.2], [18 + Math.sin(t * 3) * 2, -tw.r * 1.12], [0, -tw.r * 1.0]], c2);
+          if (recentFire) glowCircle(ctx, 0, cy, 22, '#ffffff', 0.6);
+          break;
         }
       }
-      // hp pip for the bastion (it can be focused)
-      if (tw.kind === 'bastion' && tw.hp < tw.maxHp) this.bar(ctx, -16, -tw.r - 6, 32, 3, tw.hp / tw.maxHp, '#ffcf5b');
+      if (recentFire && tw.kind !== 'citadel' && tw.kind !== 'ballista' && tw.kind !== 'splinter') {
+        glowCircle(ctx, 0, -tw.r * 0.65, 13, '#ffffff', 0.5);
+      }
       ctx.restore();
     }
   }
@@ -2353,6 +2407,53 @@ export class Renderer {
           ctx.beginPath();
           ctx.ellipse(0, 0, rr0, rr0 * 0.6, 0, 0, Math.PI * 2);
           ctx.stroke();
+        }
+        break;
+      }
+      case 'storm': {
+        // a roiling dark thundercloud raining lightning into the ring
+        const a0 = Math.min(0.85, remain * 1.5);
+        // rolling ground charge
+        ctx.globalAlpha = 0.12 + Math.sin(t * 3) * 0.04;
+        ctx.fillStyle = '#5a6a9a';
+        ctx.beginPath(); ctx.ellipse(0, 4, z.r, z.r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        // the cloud: overlapping dark puffs drifting overhead
+        ctx.globalAlpha = a0 * 0.9;
+        const cloudY = -z.r * 0.42;
+        for (let i = 0; i < 7; i++) {
+          const px = -z.r * 0.8 + (i / 6) * z.r * 1.6 + Math.sin(t * 0.8 + i) * 4;
+          const py = cloudY + Math.sin(t * 1.1 + i * 1.7) * 5;
+          const rr0 = z.r * (0.34 + (i % 3) * 0.06);
+          const cg = ctx.createRadialGradient(px, py, 2, px, py, rr0);
+          cg.addColorStop(0, '#4a4866');
+          cg.addColorStop(0.6, '#2a2840');
+          cg.addColorStop(1, 'rgba(20,18,32,0)');
+          ctx.fillStyle = cg;
+          ctx.beginPath(); ctx.ellipse(px, py, rr0, rr0 * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+        }
+        // crackle inside the cloud
+        ctx.globalAlpha = a0;
+        ctx.strokeStyle = '#cfe0ff'; ctx.lineWidth = 1;
+        for (let i = 0; i < 2; i++) {
+          if (((t * 7 + i * 3.3) % 2) > 1.2) continue;
+          const sx = (hash(z.id * 3 + i + Math.floor(t * 5)) - 0.5) * z.r;
+          ctx.beginPath(); ctx.moveTo(sx, cloudY - 6); ctx.lineTo(sx + 6, cloudY); ctx.lineTo(sx - 3, cloudY + 6); ctx.stroke();
+        }
+        // lightning strikes to the ground (periodic)
+        const strikePhase = (t * 2.2 + z.id) % 1;
+        if (strikePhase < 0.22) {
+          const bx = (hash(z.id + Math.floor(t * 2.2)) - 0.5) * z.r * 1.2;
+          ctx.globalAlpha = (1 - strikePhase / 0.22);
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.4; ctx.shadowColor = z.theme.c1; ctx.shadowBlur = 10;
+          ctx.beginPath();
+          let ly = cloudY + 6;
+          ctx.moveTo(bx, ly);
+          for (let s = 0; s < 4; s++) { ly += (4 - cloudY) / 4 * z.r / 26; ctx.lineTo(bx + (hash(z.id * 7 + s + Math.floor(t * 10)) - 0.5) * 14, ly); }
+          ctx.lineTo(bx + (hash(z.id) - 0.5) * 8, 6);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+          // ground flash
+          glowCircle(ctx, bx, 6, 18, z.theme.c1, 0.5);
         }
         break;
       }

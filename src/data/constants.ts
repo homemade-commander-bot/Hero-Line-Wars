@@ -100,6 +100,12 @@ export const C = {
 
   // towers / mazing
   FLOW_CELL: 30, // flow-field grid resolution (px)
+  TOWER_CAP: 8, // max towers standing (ult Citadel exempt) — keep the wall breakable under late pressure
+  // towers scale with the OWNER's offence, not the hero's body:
+  TOWER_SP_SCALE: 0.22, // tower dmg += owner spell power × this
+  TOWER_DMG_SCALE: 0.18, // tower dmg += owner bonus attack dmg (items+training) × this
+  TOWER_RANGE_PER_LVL: 1.2, // tower range grows a little as the builder levels
+  TOWER_BOUNTY: 0.5, // towers pay half bounty — strong defence shouldn't also be free income
 
   // wildlife — fills the lulls. Neutral creeps wander your lane; farm them for gold.
   WILD_PERIOD: [9, 13], // seconds between wild spawns, scales down as lane empties

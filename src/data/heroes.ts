@@ -426,7 +426,7 @@ const joruun: HeroDef = {
     [
       ab('joruun', 1, 'Control', 'zone', 'staticfield', 'Static Field',
         'Ground a stormcloud. Everything inside crackles, slows, and regrets its choice of road.',
-        12, 32, { r: 160, dur: 4, slow: 0.45, dps: 22, lvl: 3 }, { c1: '#ffec8a', c2: '#2d3a52' }),
+        12, 32, { r: 160, dur: 4, slow: 0.45, dps: 22, lvl: 3 }, { c1: '#ffec8a', c2: '#3a3458', shape: 'storm' }),
       ab('joruun', 1, 'Control', 'nova', 'galeclap', 'Galeclap',
         'Clap once. The thunderhead knocks the weapons out of every hand around him.',
         11, 30, { dmg: 42, lvl: 5, r: 175, knock: 60, disarm: 2.2 }, { c1: '#dfe6ff', c2: '#8aa8c4' }),
@@ -446,46 +446,50 @@ const joruun: HeroDef = {
 };
 
 // ============================================================ TARVEK ========
+// The tower architect. He barely fights — his ITEMS AND TRAINING empower his
+// TOWERS instead of himself. Build one tower at a time, anywhere in your lane,
+// on short cooldowns; they stand forever. Pick a damage spire, an AoE/anti-air
+// coil, and a slow pylon; crown it with the Citadel.
 const tarvek: HeroDef = {
   id: 'tarvek',
   name: 'Tarvek',
   epithet: 'the Wallwright',
   attr: 'int',
-  blurb: 'A siege-engineer who decided the best wall is the one the enemy builds for you, one wrong turn at a time. He has never lost an argument with geometry.',
-  base: { str: 18, agi: 12, int: 22 },
-  growth: { str: 1.9, agi: 1.2, int: 2.7 },
-  baseDmg: 24, atkRange: 130, atkInterval: 1.3, ms: 150,
+  blurb: 'A siege-engineer who lets his works do the killing. Every coin he spends on steel and study, he spends on his towers — not himself. Build the gauntlet; let the lane walk into it.',
+  base: { str: 20, agi: 12, int: 20 },
+  growth: { str: 2.0, agi: 1.2, int: 2.4 },
+  baseDmg: 20, atkRange: 150, atkInterval: 1.5, ms: 150,
   weapon: 'hammer',
   palette: { skin: '#d8b48a', main: '#4a4a3a', trim: '#e3a341', glow: '#ffcf5b', hair: '#6a5a3a' },
   slots: [
     [
-      ab('tarvek', 0, 'Assault', 'buildTower', 'arrowspire', 'Arrow Spire',
-        'Erect a spire that looses bolts at the deepest invader. Stack them into a gauntlet; route the foe past all of them.',
-        6, 26, { dur: 15, r: 30, towerHp: 200, towerDmg: 21, towerRange: 240, lvl: 0 }, { c1: '#ffcf5b', c2: '#4a4a3a' }),
-      ab('tarvek', 0, 'Assault', 'buildTower', 'flamebattery', 'Flame Battery',
-        'A squat turret that gouts fire in a splash. Slower, but it punishes a packed wave wherever your walls bunch it.',
-        9, 32, { dur: 14, r: 32, towerHp: 240, towerDmg: 29, towerRange: 175, lvl: 0 }, { c1: '#ff7733', c2: '#4a2a1a' }),
+      ab('tarvek', 0, 'Assault', 'buildTower', 'ballista', 'Ballista Spire',
+        'Build a single-target spire that hammers the deepest invader. Cheap and quick to raise — line a row of them along the march. Scales with your damage & spell items.',
+        4, 16, { perm: 1, goldCost: 45, r: 26, towerHp: 600, towerDmg: 11, towerRange: 240, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#4a4a3a', shape: 'ballista' }),
+      ab('tarvek', 0, 'Assault', 'buildTower', 'splinter', 'Splinter Spire',
+        'A rapid spire spitting splinter-bolts — less per hit, but it never stops. Best where the lane bottlenecks.',
+        4, 16, { perm: 1, goldCost: 40, r: 26, towerHp: 600, towerDmg: 5, towerRange: 200, fireRate: 0.4 }, { c1: '#ffe09a', c2: '#4a4a3a', shape: 'ballista' }),
     ],
     [
-      ab('tarvek', 1, 'Control', 'buildTower', 'bulwark', 'Bulwark Pylons',
-        'Plant two cheap, sturdy pylons. They deal no damage — they exist only to be in the way. This is the maze.',
-        7, 24, { dur: 14, r: 34, towerHp: 320, towerDmg: 0, towerRange: 0, count: 2, spacing: 14 }, { c1: '#9aa7b8', c2: '#3a3f4a' }),
-      ab('tarvek', 1, 'Control', 'buildTower', 'gluepylon', 'Tar Pylon',
-        'A pylon that weeps hot tar — anything that squeezes past is mired to a crawl. Pair it with a long detour.',
-        9, 28, { dur: 13, r: 34, towerHp: 280, towerDmg: 6, towerRange: 120, towerSlow: 0.5, lvl: 0 }, { c1: '#2a2a1a', c2: '#6a5a2a' }),
+      ab('tarvek', 1, 'Control', 'buildTower', 'frostpylon', 'Frost Pylon',
+        'A pylon that chills all who pass within its ring — a hard slow and light frost damage. Stretch the gauntlet; keep them in the fire.',
+        4.5, 18, { perm: 1, goldCost: 55, r: 28, towerHp: 700, towerDmg: 3, towerRange: 145, towerSlow: 0.35, aura: 1, fireRate: 0.5 }, { c1: '#a8e0ff', c2: '#2a4a6a', shape: 'frost' }),
+      ab('tarvek', 1, 'Control', 'buildTower', 'tarpylon', 'Tar Pylon',
+        'Weeps hot tar in a wide ring — a brutal slow with a creeping burn. Cheaper slow, no frost spike.',
+        4.5, 18, { perm: 1, goldCost: 50, r: 28, towerHp: 700, towerDmg: 4, towerRange: 145, towerSlow: 0.4, aura: 1, dot: 6, fireRate: 0.5 }, { c1: '#caa23a', c2: '#3a2e10', shape: 'tar' }),
     ],
     [
-      ab('tarvek', 2, 'Arcana', 'buffSelf', 'overclock', 'Overclock',
-        'Bang the works with a wrench: every spire you own fires harder, reaches farther, and stands a while longer.',
-        16, 30, { dur: 5, msPct: 0.2, empowerTowers: 1, towerDmgPct: 0.4, towerRangePlus: 50, towerExtend: 6 }, { c1: '#ffcf5b', c2: '#e3a341' }),
-      ab('tarvek', 2, 'Arcana', 'buffSelf', 'bracewall', 'Bracewall',
-        'Sheathe yourself in scrap-iron and reinforce your works — armor and a shield for you, fresh timbers for every tower.',
-        13, 28, { dur: 6, armor: 8, shield: 110, shieldLvl: 12, empowerTowers: 1, towerHeal: 9999, towerExtend: 4 }, { c1: '#9aa7b8', c2: '#4a4a3a' }),
+      ab('tarvek', 2, 'Arcana', 'buildTower', 'tempestcoil', 'Tempest Coil',
+        'A storm-coil that arcs lightning across a cluster and strikes flyers from the sky — +60% to airborne. Your anti-air and your crowd-clearer in one.',
+        5.5, 24, { perm: 1, goldCost: 75, r: 28, towerHp: 650, towerDmg: 9, towerRange: 200, splash: 75, bonusAir: 0.6, fireRate: 1.05 }, { c1: '#7db8ff', c2: '#2d2150', shape: 'tempest' }),
+      ab('tarvek', 2, 'Arcana', 'buildTower', 'flamebattery', 'Flame Battery',
+        'Gouts burning splash across the ground — bigger blast, no anti-air. For packed ground hordes.',
+        5.5, 24, { perm: 1, goldCost: 70, r: 28, towerHp: 650, towerDmg: 11, towerRange: 180, splash: 95, fireRate: 1.15 }, { c1: '#ff7733', c2: '#4a2a1a', shape: 'flame' }),
     ],
   ],
-  ult: ab('tarvek', 3, 'Ultimate', 'buildTower', 'grandbastion', 'Grand Bastion',
-    'The masterwork: a fortress-spire wreathed in cannon-fire that flattens whole packs and chills the survivors. Build the maze; then build the wall at the end of it.',
-    72, 100, { dur: 24, r: 46, towerHp: 1200, towerDmg: 58, towerRange: 235, towerSlow: 0.3, lvl: 0 }, { c1: '#ffcf5b', c2: '#ff7733' }),
+  ult: ab('tarvek', 3, 'Ultimate', 'buildTower', 'citadel', 'Citadel of Ages',
+    'The masterwork: a towering fortress-cannon that scatters devastating fire across a wide field, slows the survivors, and answers the skies. Long to raise, permanent once built — place it where the maze ends.',
+    80, 110, { perm: 1, goldCost: 250, r: 46, towerHp: 4000, towerDmg: 34, towerRange: 280, splash: 125, bonusAir: 0.6, towerSlow: 0.3, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#ff7733', shape: 'citadel' }),
 };
 
 // ---------------------------------------------------------------------------

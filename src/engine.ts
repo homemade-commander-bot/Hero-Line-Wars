@@ -285,6 +285,7 @@ interface DmgOpts {
   fromHero?: HeroState; // lifesteal / ignite / kill attribution
   isAbility?: boolean;
   killerPlayer?: number; // attribution when no hero ref (zones, summons)
+  bountyMult?: number; // towers pay reduced bounty — great defense ≠ free riches
 }
 
 export function dmgUnit(g: GameState, u: UnitState, raw: number, kind: 'phys' | 'magic', srcTeam: TeamId, o: DmgOpts = {}): number {
@@ -309,7 +310,7 @@ export function dmgUnit(g: GameState, u: UnitState, raw: number, kind: 'phys' | 
   if (!o.silent) emit(g, { t: 'dmg', pos: { ...u.pos }, amount, kind, target: 'unit', team: srcTeam });
   if (u.hp <= 0) {
     u.hp = -1e9;
-    killUnit(g, u, srcTeam, o.noBounty ?? false, o.fromHero, o.killerPlayer);
+    killUnit(g, u, srcTeam, o.noBounty ?? false, o.fromHero, o.killerPlayer, o.bountyMult ?? 1);
   }
   return amount;
 }
@@ -326,7 +327,7 @@ export function applySlow(u: UnitState, pct: number, dur: number, t: number) {
   }
 }
 
-function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: boolean, killerHero?: HeroState, killerPlayerId?: number) {
+function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: boolean, killerHero?: HeroState, killerPlayerId?: number, bountyMult = 1) {
   const def = UNIT_BY_ID[u.defId];
   const defTeam = g.teams[u.lane];
   // resolve the earner: the killing hero's owner, else explicit, else a random defender
@@ -346,7 +347,7 @@ function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: bool
   }
 
   if (!noBounty) {
-    const b = bounty(def, u.raised);
+    const b = Math.round(bounty(def, u.raised) * bountyMult);
     earner.gold += b;
     earner.stats.goldEarned += b;
     earner.stats.kills += 1;
@@ -794,6 +795,25 @@ export function castAbility(g: GameState, pl: PlayerState, slot: number): boolea
     emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: 'Not enough mana' });
     return false;
   }
+  // towers cost gold — a fortress competes with your war chest (checked before mana/cd spend)
+  if (ab.kind === 'buildTower') {
+    const gcost = ab.p.goldCost ?? 0;
+    const isUlt = ab.id === 'citadel';
+    const standing = g.towers.filter(tw => tw.player === pl.id && tw.kind !== 'citadel').length;
+    if (!isUlt && standing >= C.TOWER_CAP) {
+      emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: 'Tower limit reached' });
+      return false;
+    }
+    if (isUlt && g.towers.some(tw => tw.player === pl.id && tw.kind === 'citadel')) {
+      emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: 'Your Citadel already stands' });
+      return false;
+    }
+    if (pl.gold < gcost) {
+      emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: `Need ${gcost}g to build` });
+      return false;
+    }
+    pl.gold -= gcost;
+  }
   const aim = clampToLane(pl.team, { ...pl.input.aim }, 24);
   h.mana -= ab.mana;
   h.cds[slot] = g.t + ab.cd * (1 - h.d.cdr);
@@ -973,16 +993,6 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         h.buffs.push(b);
         h.d = computeDerived(h);
       }
-      // Wallwright's Overclock / Reinforce: empower & refresh your towers
-      if (p.empowerTowers) {
-        for (const tw of g.towers) {
-          if (tw.player !== pl.id) continue;
-          tw.dmg *= 1 + (p.towerDmgPct ?? 0);
-          tw.range += p.towerRangePlus ?? 0;
-          tw.until += p.towerExtend ?? 0;
-          tw.hp = Math.min(tw.maxHp, tw.hp + (p.towerHeal ?? 0));
-        }
-      }
       emit(g, { t: 'impact', pos: { ...h.pos }, r: 30, theme: ab.theme, kind: 'blessing' });
       break;
     }
@@ -1042,6 +1052,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         }
       }
       else if (p.heal) { kind = 'sanctify'; zp.heal = p.heal + (p.healLvl ?? 0) * h.level; zp.slow = p.slow ?? 0; }
+      else if (ab.theme.shape === 'storm') { kind = 'storm'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; }
       else { kind = 'gravity'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; }
       const dur = kind === 'collapse' ? p.delay : (p.dur ?? 3);
       makeZone(g, pl, kind, { ...aim }, p.r, dur, zp, ab.theme);
@@ -1104,39 +1115,65 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
 }
 
 const TOWER_KIND: Record<string, import('./types').TowerKind> = {
-  arrowspire: 'spire', flamebattery: 'flame', bulwark: 'bulwark', gluepylon: 'glue', grandbastion: 'bastion',
+  ballista: 'ballista', splinter: 'splinter', frostpylon: 'frost', tarpylon: 'tar',
+  tempestcoil: 'tempest', flamebattery: 'flame', citadel: 'citadel',
 };
+
+/** A tower's live damage, drawn from its OWNER's items + training (not the hero's body). */
+function towerDamage(tw: import('./types').TowerState, owner: HeroState): number {
+  return tw.baseDmg + owner.d.sp * C.TOWER_SP_SCALE + owner.bonus.dmg * C.TOWER_DMG_SCALE;
+}
+function towerRange(tw: import('./types').TowerState, owner: HeroState): number {
+  return tw.baseRange + owner.level * C.TOWER_RANGE_PER_LVL;
+}
 
 function placeTower(g: GameState, pl: PlayerState, ab: AbilityDef, aim: Vec) {
   const p = ab.p;
-  const L = laneOf(pl.team);
-  // keep towers out of the spawn mouth and off the castle steps
-  const pos = {
-    x: clamp(aim.x, L.x0 + p.r + 4, L.x1 - p.r - 4),
-    y: clamp(aim.y, C.SPAWN_Y + 46, C.CASTLE_Y - 60),
-  };
-  // don't stack towers on top of each other
-  for (const tw of g.towers) {
-    if (tw.lane === pl.team && dist(tw.pos, pos) < tw.r + p.r - 6) {
-      pos.x += (pos.x - tw.pos.x >= 0 ? 1 : -1) * (tw.r + p.r);
-      pos.x = clamp(pos.x, L.x0 + p.r + 4, L.x1 - p.r - 4);
-    }
+  const isUlt = ab.id === 'citadel';
+  // tower cap (the Citadel doesn't count against it and is unique-ish)
+  const mine = g.towers.filter(tw => tw.player === pl.id && tw.kind !== 'citadel').length;
+  if (!isUlt && mine >= C.TOWER_CAP) {
+    emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: 'Tower limit reached — no more room in the works' });
+    // refund: nothing spent yet returns, but the cast already paid mana/cd in castAbility.
+    return;
   }
-  const sp = pl.hero.d.spellAmp;
+  const L = laneOf(pl.team);
+  // build anywhere in your own lane (a little clearance from the gate & spawn mouth)
+  const pos = {
+    x: clamp(aim.x, L.x0 + p.r + 2, L.x1 - p.r - 2),
+    y: clamp(aim.y, C.SPAWN_Y + 30, C.CASTLE_Y - 44),
+  };
+  // nudge off any tower it would overlap
+  for (let tries = 0; tries < 8; tries++) {
+    let clash: import('./types').TowerState | null = null;
+    for (const tw of g.towers) {
+      if (tw.lane === pl.team && dist(tw.pos, pos) < tw.r + p.r - 4) { clash = tw; break; }
+    }
+    if (!clash) break;
+    const dx = pos.x - clash.pos.x, dy = pos.y - clash.pos.y;
+    const d0 = Math.hypot(dx, dy) || 1;
+    pos.x = clamp(clash.pos.x + (dx / d0) * (clash.r + p.r + 1), L.x0 + p.r + 2, L.x1 - p.r - 2);
+    pos.y = clamp(clash.pos.y + (dy / d0) * (clash.r + p.r + 1), C.SPAWN_Y + 30, C.CASTLE_Y - 44);
+  }
   const tw: import('./types').TowerState = {
     id: g.nextId++,
-    kind: TOWER_KIND[ab.id] ?? 'spire',
+    kind: TOWER_KIND[ab.id] ?? 'ballista',
     lane: pl.team,
     player: pl.id,
     pos,
     r: p.r,
-    hp: p.towerHp ?? 200,
-    maxHp: p.towerHp ?? 200,
-    dmg: (p.towerDmg ?? 0) * sp,
-    range: p.towerRange ?? 0,
-    attackReadyAt: 0,
+    hp: p.towerHp ?? 400,
+    maxHp: p.towerHp ?? 400,
+    baseDmg: p.towerDmg ?? 0,
+    baseRange: p.towerRange ?? 0,
+    fireRate: p.fireRate ?? 0.85,
+    splash: p.splash ?? 0,
+    bonusAir: p.bonusAir ?? 0,
+    aura: !!p.aura,
+    dot: p.dot ?? 0,
     slow: p.towerSlow ?? 0,
-    until: g.t + p.dur,
+    attackReadyAt: 0,
+    until: p.perm ? Infinity : g.t + (p.dur ?? 15),
     born: g.t,
     theme: ab.theme,
   };
@@ -1584,29 +1621,25 @@ function updateUnits(g: GameState, dt: number) {
 
       const moveMult = engaged ? C.UNIT_ENGAGE_SLOW : 1;
       const stepLen = speed * moveMult * dt;
-      if (g.towers.length > 0 && hasTower(g, u.lane)) {
-        // maze: follow the flow field around the towers
-        const fd = flowDir(g, u.lane, u.pos);
-        let mx = fd.x, my = fd.y;
-        // local avoidance: push out of any tower we're hugging
+      // towers don't wall the lane — units march on and just slide around them
+      let mx = 0, my = 1;
+      const cx = laneCenterX(u.lane);
+      if (u.pos.y > C.CASTLE_Y - 220) mx += (cx - u.pos.x) * 0.012; // funnel toward the gate late
+      if (g.towers.length > 0) {
         for (const tw of g.towers) {
           if (tw.lane !== u.lane) continue;
           const dx = u.pos.x - tw.pos.x, dy = u.pos.y - tw.pos.y;
           const d0 = Math.hypot(dx, dy);
-          if (d0 < tw.r + 16 && d0 > 0.01) {
-            const push = (tw.r + 16 - d0) / (tw.r + 16);
-            mx += (dx / d0) * push * 1.4;
-            my += (dy / d0) * push * 1.4;
+          if (d0 < tw.r + 14 && d0 > 0.01) {
+            const push = (tw.r + 14 - d0) / (tw.r + 14);
+            mx += (dx / d0) * push * 1.6;
+            my += (dy / d0) * push * 0.5; // mostly sideways — keep advancing
           }
         }
-        const ml = Math.hypot(mx, my) || 1;
-        u.pos.x += (mx / ml) * stepLen;
-        u.pos.y += (my / ml) * stepLen;
-      } else {
-        u.pos.y += stepLen;
-        const cx = laneCenterX(u.lane);
-        if (u.pos.y > C.CASTLE_Y - 220) u.pos.x += (cx - u.pos.x) * 0.35 * dt;
       }
+      const ml = Math.hypot(mx, my) || 1;
+      u.pos.x += (mx / ml) * stepLen;
+      u.pos.y += (my / ml) * stepLen;
 
       if (u.pos.y >= C.CASTLE_Y - 22) {
         u.pos.y = C.CASTLE_Y - 22;
@@ -1644,47 +1677,71 @@ function updateTowers(g: GameState, dt: number) {
   const t = g.t;
   for (const tw of g.towers) {
     if (t >= tw.until || tw.hp <= 0) continue;
-    if (tw.dmg <= 0 || tw.range <= 0) continue;
+    const owner = playerById(g, tw.player);
+    const oh = owner.hero;
+    const range = towerRange(tw, oh);
+    const antiAir = tw.kind === 'tempest' || tw.kind === 'citadel';
+
+    // aura towers (frost / tar): continuously mire everything in range
+    if (tw.aura) {
+      if (t < tw.attackReadyAt) continue;
+      tw.attackReadyAt = t + 0.25;
+      const tick = towerDamage(tw, oh) * 0.25;
+      for (const u of g.units) {
+        if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
+        if (dist(u.pos, tw.pos) > range) continue;
+        applySlow(u, tw.slow, 0.45, t);
+        if (tw.dot) addDot(u, tw.dot, 1, t);
+        if (tick > 0) dmgUnit(g, u, tick, 'magic', tw.lane, { silent: true, killerPlayer: tw.player, bountyMult: C.TOWER_BOUNTY });
+      }
+      continue;
+    }
+
     if (t < tw.attackReadyAt) continue;
-    // shoot the invader nearest the gate within range
+    // target the invader deepest into the lane and in range (ground-only towers skip flyers)
     let tgt: UnitState | null = null;
     let bestY = -Infinity;
     for (const u of g.units) {
       if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
-      if (dist(u.pos, tw.pos) > tw.range) continue;
+      if (UNIT_BY_ID[u.defId].flying && !antiAir) continue;
+      if (dist(u.pos, tw.pos) > range) continue;
       if (u.pos.y > bestY) { bestY = u.pos.y; tgt = u; }
     }
-    if (tgt) {
-      tw.attackReadyAt = t + (tw.kind === 'flame' ? 1.1 : tw.kind === 'bastion' ? 0.7 : 0.85);
-      if (tw.kind === 'flame' || tw.kind === 'bastion') {
-        // splash
-        for (const u of g.units) {
-          if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
-          if (dist(u.pos, tgt.pos) <= (tw.kind === 'bastion' ? 95 : 70)) {
-            dmgUnit(g, u, tw.dmg, 'magic', tw.lane, { killerPlayer: tw.player });
-            if (u.hp > 0 && tw.slow) applySlow(u, tw.slow, 1, t);
-          }
-        }
-        emit(g, { t: 'impact', pos: { ...tgt.pos }, r: tw.kind === 'bastion' ? 95 : 70, theme: tw.theme, kind: 'burst' });
-      } else {
-        // bolt
-        g.projectiles.push({
-          id: g.nextId++, owner: tw.lane, pos: { x: tw.pos.x, y: tw.pos.y - 20 },
-          vel: { x: 0, y: 0 }, r: 12, dmg: tw.dmg, kind: 'magic', pierce: false,
-          explodeR: 0, explodeDmg: 0, dragX: 0, slowPct: tw.slow, slowDur: tw.slow ? 1 : 0,
-          dotDps: 0, dotDur: 0, knock: 0, hitIds: [], boomerang: 0,
-          origin: { ...tw.pos }, maxDist: tw.range + 80, targetUnit: tgt.id,
-          theme: tw.theme, ignite: 0, player: tw.player,
-        });
-        // aim the bolt
-        const pr = g.projectiles[g.projectiles.length - 1];
-        const dx = tgt.pos.x - pr.pos.x, dy = tgt.pos.y - pr.pos.y;
-        const len = Math.hypot(dx, dy) || 1;
-        pr.vel = { x: (dx / len) * 620, y: (dy / len) * 620 };
+    if (!tgt) continue;
+    tw.attackReadyAt = t + tw.fireRate;
+    const base = towerDamage(tw, oh);
+
+    if (tw.splash > 0) {
+      for (const u of g.units) {
+        if (u.lane !== tw.lane || u.hp <= 0 || u.wild) continue;
+        const fly = UNIT_BY_ID[u.defId].flying;
+        if (fly && !antiAir) continue;
+        if (dist(u.pos, tgt.pos) > tw.splash) continue;
+        const dmg = base * (fly ? 1 + tw.bonusAir : 1);
+        dmgUnit(g, u, dmg, 'magic', tw.lane, { killerPlayer: tw.player, bountyMult: C.TOWER_BOUNTY });
+        if (u.hp > 0 && tw.slow) applySlow(u, tw.slow, 1.2, t);
+        if (u.hp > 0 && tw.dot) addDot(u, tw.dot, 2.5, t);
       }
+      emit(g, { t: 'impact', pos: { ...tgt.pos }, r: tw.splash, theme: tw.theme, kind: tw.kind === 'tempest' || tw.kind === 'citadel' ? 'bolt' : 'burst' });
+    } else {
+      // single-target bolt (homing)
+      const fly = UNIT_BY_ID[tgt.defId].flying;
+      const dmg = base * (fly ? 1 + tw.bonusAir : 1);
+      g.projectiles.push({
+        id: g.nextId++, owner: tw.lane, pos: { x: tw.pos.x, y: tw.pos.y - 22 },
+        vel: { x: 0, y: 0 }, r: 12, dmg, kind: 'magic', pierce: false,
+        explodeR: 0, explodeDmg: 0, dragX: 0, slowPct: tw.slow, slowDur: tw.slow ? 1 : 0,
+        dotDps: tw.dot, dotDur: tw.dot ? 2.5 : 0, knock: 0, hitIds: [], boomerang: 0,
+        origin: { ...tw.pos }, maxDist: range + 90, targetUnit: tgt.id,
+        theme: tw.theme, ignite: 0, player: tw.player, towerShot: true,
+      });
+      const pr = g.projectiles[g.projectiles.length - 1];
+      const dx = tgt.pos.x - pr.pos.x, dy = tgt.pos.y - pr.pos.y;
+      const len = Math.hypot(dx, dy) || 1;
+      pr.vel = { x: (dx / len) * 680, y: (dy / len) * 680 };
     }
   }
-  // expire towers; invalidate the flow field of any lane that lost one
+  // expire any non-permanent towers (the rework makes them permanent, but keep the path)
   for (let i = g.towers.length - 1; i >= 0; i--) {
     const tw = g.towers[i];
     if (t >= tw.until || tw.hp <= 0) {
@@ -1761,7 +1818,7 @@ function updateProjectiles(g: GameState, dt: number) {
       if (u.lane !== pr.owner || u.hp <= 0 || pr.hitIds.includes(u.id)) continue;
       if (dist(u.pos, pr.pos) > pr.r + 15) continue;
       pr.hitIds.push(u.id);
-      dmgUnit(g, u, pr.dmg, pr.kind, pr.owner, { fromHero: hero, isAbility: pr.kind === 'magic' });
+      dmgUnit(g, u, pr.dmg, pr.kind, pr.owner, { fromHero: hero, isAbility: pr.kind === 'magic', bountyMult: pr.towerShot ? C.TOWER_BOUNTY : 1, killerPlayer: pr.player });
       if (pr.slowPct && u.hp > 0) applySlow(u, pr.slowPct, pr.slowDur, t);
       if (pr.dotDps && u.hp > 0) addDot(u, pr.dotDps, pr.dotDur, t);
       if (pr.knock && u.hp > 0) {

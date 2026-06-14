@@ -72,16 +72,17 @@ per hero — plus a fixed signature **Ultimate**. 70 abilities total; no two her
 | **Maelis the Hollow Sage** | INT · void scholar | *Event Horizon* — a black sun swallows the lane |
 | **Morrigan Thornheart** | INT · the Verdant Witch | *Garden of Teeth* — the lane grows man-high snapping jaws |
 | **Seraphine Dawnvoice** | INT · high cantor | *Judgement Choir* — pillars of dawn descend one by one down the lane |
-| **Tarvek the Wallwright** | INT · siege-engineer | *Grand Bastion* — a fortress-spire; place towers to **maze** the enemy's units |
+| **Tarvek the Wallwright** | INT · siege-engineer | *Citadel of Ages* — a mega-tower; build a fortress of towers that scale with your gear |
 
-### Tarvek & the maze
+### Tarvek the tower architect
 
-Tarvek's abilities raise **towers** in your own lane. Damage turrets (Arrow Spire, Flame Battery)
-shoot the marchers; blockers (Bulwark / Tar Pylons) deal little or nothing — their job is to be in
-the way. Invading units **path around your towers** (real flow-field navigation), so by placing
-blockers and turrets you can fold the lane into a winding gauntlet that drags every wave past your
-guns. Towers expire, so you actively rebuild and reshape the maze each push. *Overclock* empowers
-and refreshes everything you've built.
+Tarvek barely fights — he **builds towers**. Each ability raises one tower, anywhere in your lane,
+on a short cooldown, and they **stand permanently**. Choose a damage spire, an AoE anti-air coil,
+and a slow pylon; the ultimate raises a single mighty **Citadel of Ages**. Crucially, his towers
+scale with **his** items and War-Council training — buy spell power and attack damage and *your
+towers* hit harder (his own body stays weak). Towers cost gold as well as mana, so a fortress
+competes with your war chest. Mind your **anti-air**: ground towers can't touch flyers — only the
+Tempest Coil and Citadel answer the skies.
 
 ## Things to do between waves
 
