@@ -10,7 +10,7 @@ import { HERO_BY_ID } from './data/heroes';
 import { UNIT_BY_ID } from './data/units';
 import { ITEM_BY_ID } from './data/items';
 import {
-  abilityOf, heroDef, tryBuyItem, tryBuyStat, tryRepair, trySend, tryUpgradeKeep,
+  abilityOf, allocSkill, canAlloc, heroDef, tryBuyItem, tryBuyStat, tryRepair, trySend, tryUpgradeKeep,
 } from './engine';
 
 const dist = (a: Vec, b: Vec) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -105,11 +105,30 @@ export function aiThink(g: GameState, pl: PlayerState) {
   if (g.t < ai.nextThinkAt) return;
   ai.nextThinkAt = g.t + ai.thinkInterval;
 
+  spendSkillPoints(g, pl);
+
   const skip = ai.priceMult > 1 ? 0.3 : ai.thinkInterval <= 0.55 ? 0 : 0.08;
   if (g.rng() < skip) return; // a moment of hesitation
 
   micro(g, pl);
   macro(g, pl);
+}
+
+// ---------------------------------------------------------------- skill points
+
+// Build order: learn the assault opener, grab ult ranks as they unlock, then
+// max the opener, then round out control/arcana.
+function spendSkillPoints(g: GameState, pl: PlayerState) {
+  const h = pl.hero;
+  let guard = 0;
+  while (h.skillPoints > 0 && guard++ < 8) {
+    const order = h.ranks[0] < 1 ? [0, 3, 1, 2] : [3, 0, 1, 2];
+    let done = false;
+    for (const slot of order) {
+      if (canAlloc(h, slot)) { allocSkill(g, pl, slot); done = true; break; }
+    }
+    if (!done) break;
+  }
 }
 
 // ------------------------------------------------------------------- micro
@@ -170,10 +189,10 @@ function micro(g: GameState, pl: PlayerState) {
   const laneVal = totalValue(units);
 
   for (let slot2 = 0; slot2 < 4; slot2++) {
+    if (h.ranks[slot2] < 1) continue; // not learned yet
     if (g.t < h.cds[slot2]) continue;
     const ab = abilityOf(h, slot2);
     if (!ab || h.mana < ab.mana) continue;
-    if (slot2 === 3 && h.level < C.ULT_LEVEL) continue;
 
     const p = ab.p;
     let cast = false;

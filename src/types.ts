@@ -125,6 +125,8 @@ export interface HeroState {
   facing: number; // -1 left, 1 right (visual)
   level: number;
   xp: number;
+  ranks: number[]; // skill rank per slot (0..5; 0 = unlearned). Ult ranks at 6/11/16.
+  skillPoints: number; // unspent points to raise abilities
   hp: number;
   mana: number;
   bonus: { str: number; agi: number; int: number; dmg: number; armor: number }; // from War Council training
@@ -355,6 +357,7 @@ export type GameEvent =
   | { t: 'income'; team: TeamId; amount: number; player?: number }
   | { t: 'gold'; team: TeamId; amount: number; pos?: Vec; player?: number }
   | { t: 'levelup'; team: TeamId; level: number; pos: Vec; player?: number }
+  | { t: 'skillup'; team: TeamId; player: number; slot: number; rank: number; pos: Vec }
   | { t: 'forge'; team: TeamId; itemId: string; player?: number }
   | { t: 'buy'; team: TeamId; itemId: string }
   | { t: 'sell'; team: TeamId; player: number; itemId: string; refund: number }

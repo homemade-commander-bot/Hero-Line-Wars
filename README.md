@@ -49,11 +49,18 @@ npm run sim      # headless AI-vs-AI balance harness (see below)
 | Input | Action |
 | --- | --- |
 | **Click the battlefield** | Move your hero (either button — WC3 style) |
-| `Q` `E` `F` | Abilities, aimed at your cursor · `R` Ultimate (level 6) |
+| `Q` `E` `F` | Abilities, aimed at your cursor · `R` Ultimate |
+| **Click an ability** | Spend a skill point to learn / rank it up |
+| `1`–`9` `0`, `T Y U I` | Send monsters (Shift = ×5) |
 | `W A S D` / arrows | Direct movement (optional alternative) |
-| `1`–`6` | Item actives |
 | `B` / `G` / `V` | Barracks / Forge / War Council |
 | `P` pause · `M` mute · `Esc` | close panel / pause |
+
+## Leveling
+
+Each level grants a **skill point**. Click an ability to learn it (you can't cast what you haven't
+learned) or to rank it up — higher ranks hit harder. Your ultimate ranks up at levels 6, 11 and 16.
+Spend points to specialize your hero each game.
 
 ## The Champions (10)
 

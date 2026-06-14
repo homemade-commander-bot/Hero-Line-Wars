@@ -7,10 +7,11 @@ import './style.css';
 import type { GameEvent, GameState, PlayerState, TeamId } from './types';
 import { C, type Difficulty } from './data/constants';
 import {
-  allPlayers, newGame, randomHeroes, randomLoadout, step, trySend, tryBuyItem,
+  allPlayers, allocSkill, newGame, randomHeroes, randomLoadout, step, trySend, tryBuyItem,
   trySellItem, tryBuyStat, tryRepair, tryUpgradeKeep,
 } from './engine';
 import { aiThink } from './ai';
+import { HOTKEY_UNIT } from './data/units';
 import { Renderer } from './render';
 import * as ui from './ui';
 import { initAudio, isMuted, setMuted, sfx } from './sfx';
@@ -114,14 +115,14 @@ function startGame(mode: Mode, difficulty: Difficulty, teamSize: 1 | 3, heroId?:
     viewTeam: 0,
     spectate: mode === 'spectate',
     paused: false,
-    speed: 1,
-    speedOptions: mode === 'spectate' ? [1, 2, 4, 8] : [1, 2],
+    speed: mode === 'spectate' ? 2 : 1.5,
+    speedOptions: mode === 'spectate' ? [1, 2, 4, 8] : [1, 1.5, 2, 3],
     over: false,
     endShownAt: 0,
     mode, difficulty, teamSize, heroId, loadout,
   };
 
-  ui.buildHud(g, S.human ? S.human.id : g.teams[0].players[0].id, makeActions(), S.spectate);
+  ui.buildHud(g, S.human ? S.human.id : g.teams[0].players[0].id, makeActions(), S.spectate, S.speed);
   ui.screen('game');
   ui.setPauseVeil(false);
   sfx.horn();
@@ -167,6 +168,10 @@ function makeActions(): ui.HudActions {
     sellItem(slot) {
       if (!S || S.over || !S.human) return;
       if (trySellItem(S.g, S.human, slot)) { sfx.coin(); ui.refreshPanel(); }
+    },
+    allocSkill(slot) {
+      if (!S || S.over || !S.human) return;
+      if (allocSkill(S.g, S.human, slot)) sfx.levelup();
     },
     togglePause() {
       if (!S || S.over) return;
@@ -227,11 +232,6 @@ addEventListener('keydown', e => {
       S.human.input.cast[KEY_TO_SLOT[k]] = true;
       break;
     }
-    case '1': case '2': case '3': case '4': case '5': case '6': {
-      if (!S.human || S.over || S.paused) break;
-      S.human.input.useItem[parseInt(k, 10) - 1] = true;
-      break;
-    }
     case 'b': ui.togglePanel('barracks'); sfx.click(); break;
     case 'g': ui.togglePanel('forge'); sfx.click(); break;
     case 'v': ui.togglePanel('council'); sfx.click(); break;
@@ -241,6 +241,17 @@ addEventListener('keydown', e => {
       if (ui.currentPanel()) ui.closePanel();
       else if (!S.over) { S.paused = !S.paused; ui.setPauseVeil(S.paused); }
       break;
+    default: {
+      // unit send hotkeys (number row + T Y U I)
+      const defId = HOTKEY_UNIT[k];
+      if (defId && S.human && !S.over && !S.paused) {
+        e.preventDefault();
+        const n = e.shiftKey ? 5 : 1;
+        let sent = 0;
+        for (let i = 0; i < n; i++) if (trySend(S.g, S.human, defId)) sent++;
+        if (sent > 0) sfx.coin();
+      }
+    }
   }
 });
 addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));

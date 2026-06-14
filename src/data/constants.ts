@@ -24,7 +24,7 @@ export const C = {
   HERO_KILL_GOLD: 60, // + 12/level, paid to opposing team
 
   // castle
-  CASTLE_HP: 3000,
+  CASTLE_HP: 3500,
   CASTLE_HP_PER_ALLY: 0.55, // 3v3: castle hp scales with team size
   CASTLE_DPS_PER_ALLY: 0.4, // 3v3: castle archers scale too
   CASTLE_DPS: [0, 22, 32, 46], // by keep level (index 1..3)
@@ -99,6 +99,8 @@ export const C = {
   UNIT_ATK_PERIOD: 1.0,
   UNIT_HP_MULT: 1.2, // sent monsters are beefier than they used to be — sends should matter
   UNIT_DMG_MULT: 1.06,
+  UNIT_SPEED_MULT: 1.12, // brisker march — the lane was too sluggish at 1x
+  HERO_MS_MULT: 1.1, // heroes feel less leaden moving around the lane
 
   // towers / mazing
   FLOW_CELL: 30, // flow-field grid resolution (px)

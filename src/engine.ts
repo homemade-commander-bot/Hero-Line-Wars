@@ -99,6 +99,8 @@ function newHero(team: TeamId, playerId: number, heroId: string, loadout: string
     facing: team === 0 ? 1 : -1,
     level: 1,
     xp: 0,
+    ranks: [0, 0, 0, 0],
+    skillPoints: 1, // a point at level 1 to learn a first ability
     hp: 1,
     mana: 1,
     bonus: { str: 0, agi: 0, int: 0, dmg: 0, armor: 0 },
@@ -258,7 +260,7 @@ export function computeDerived(h: HeroState, applyHpDelta = true): HeroDerived {
     armor: agi * C.ARMOR_PER_AGI + h.bonus.armor + itemArmor + bArmor,
     sp,
     spellAmp: (1 + sp / 100) * (1 + bSpellAmp),
-    ms: def.ms * (1 + itemMs + bMsPct),
+    ms: def.ms * C.HERO_MS_MULT * (1 + itemMs + bMsPct),
     range: def.atkRange,
     dodge: Math.min(0.6, bDodge),
     lifesteal: bLifesteal + itemLifesteal,
@@ -495,6 +497,7 @@ function addXp(g: GameState, h: HeroState, xp: number) {
   while (h.xp >= need && h.level < C.MAX_LEVEL) {
     h.xp -= need;
     h.level++;
+    h.skillPoints++; // a skill point each level — spend it to rank up an ability
     h.d = computeDerived(h);
     healHero(h, h.d.maxHp * 0.15);
     h.mana = Math.min(h.d.maxMana, h.mana + h.d.maxMana * 0.15);
@@ -778,8 +781,35 @@ function heroFeared(h: HeroState): boolean {
   return h.buffs.some(b => b.fear);
 }
 
+// rank → power multiplier (the player's investment on top of innate level scaling)
+const BASIC_RANK_MULT = [0, 0.8, 0.95, 1.1, 1.25, 1.4];
+const ULT_RANK_MULT = [0, 0.9, 1.1, 1.3];
+const ULT_RANK_LEVEL = [6, 11, 16]; // hero level required for ult rank 1/2/3
+export const MAX_BASIC_RANK = 5;
+export const MAX_ULT_RANK = 3;
+
+export function rankMult(slot: number, rank: number): number {
+  if (slot === 3) return ULT_RANK_MULT[rank] ?? 0;
+  return BASIC_RANK_MULT[rank] ?? 0;
+}
+export function canAlloc(h: HeroState, slot: number): boolean {
+  if (h.skillPoints <= 0) return false;
+  const rank = h.ranks[slot];
+  if (slot === 3) return rank < MAX_ULT_RANK && h.level >= ULT_RANK_LEVEL[rank];
+  return rank < MAX_BASIC_RANK;
+}
+
+export function allocSkill(g: GameState, pl: PlayerState, slot: number): boolean {
+  const h = pl.hero;
+  if (g.over || !canAlloc(h, slot)) return false;
+  h.ranks[slot]++;
+  h.skillPoints--;
+  emit(g, { t: 'skillup', team: pl.team, player: pl.id, slot, rank: h.ranks[slot], pos: { ...h.pos } });
+  return true;
+}
+
 function abilityDamage(ab: AbilityDef, h: HeroState): number {
-  return ((ab.p.dmg ?? 0) + (ab.p.lvl ?? 0) * h.level) * h.d.spellAmp;
+  return ((ab.p.dmg ?? 0) + (ab.p.lvl ?? 0) * h.level) * h.d.spellAmp * rankMult(ab.slot, h.ranks[ab.slot]);
 }
 
 export function castAbility(g: GameState, pl: PlayerState, slot: number): boolean {
@@ -787,8 +817,8 @@ export function castAbility(g: GameState, pl: PlayerState, slot: number): boolea
   if (h.dead || g.over || h.channel || heroStunned(h) || heroFeared(h)) return false;
   const ab = abilityOf(h, slot);
   if (!ab) return false;
-  if (slot === 3 && h.level < C.ULT_LEVEL) {
-    emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: `Ultimate unlocks at level ${C.ULT_LEVEL}` });
+  if (h.ranks[slot] < 1) {
+    emit(g, { t: 'deny', team: pl.team, player: pl.id, msg: slot === 3 ? `Learn your ultimate (skill point at level ${C.ULT_LEVEL})` : 'Spend a skill point to learn this ability' });
     return false;
   }
   if (g.t < h.cds[slot]) return false;
@@ -840,6 +870,7 @@ function unitsInLane(g: GameState, lane: TeamId): UnitState[] {
 function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef, aim: Vec) {
   const p = ab.p;
   const lane = pl.team;
+  const rm = rankMult(ab.slot, h.ranks[ab.slot]); // rank investment scales the whole spell
   const dmg = abilityDamage(ab, h);
   const t = g.t;
   const foes = () => unitsInLane(g, lane);
@@ -949,11 +980,11 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
           kind: 'magic',
           pierce: !!p.pierce,
           explodeR: p.explodeR ?? 0,
-          explodeDmg: (p.explodeDmg ?? 0) * h.d.spellAmp,
+          explodeDmg: (p.explodeDmg ?? 0) * h.d.spellAmp * rm,
           dragX: p.drag ?? 0,
           slowPct: p.slow ?? 0,
           slowDur: p.slowDur ?? 0,
-          dotDps: (p.dot ?? 0) * h.d.spellAmp,
+          dotDps: (p.dot ?? 0) * h.d.spellAmp * rm,
           dotDur: p.dotDur ?? 0,
           knock: p.knock ?? 0,
           hitIds: [],
@@ -970,16 +1001,16 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
     case 'buffSelf': {
       if (p.heal || p.healMissPct) {
         const missing = h.d.maxHp - h.hp;
-        healHero(h, (p.heal ?? 0) + (p.healLvl ?? 0) * h.level + (p.healMissPct ?? 0) * missing);
+        healHero(h, ((p.heal ?? 0) + (p.healLvl ?? 0) * h.level) * rm + (p.healMissPct ?? 0) * missing);
       }
       if (p.manaGain) h.mana = Math.min(h.d.maxMana, h.mana + p.manaGain);
       if (p.dur && p.dur > 0) {
         const b: Buff = { id: ab.id, until: t + p.dur, theme: ab.id };
-        if (p.shield) b.shield = p.shield + (p.shieldLvl ?? 0) * h.level;
+        if (p.shield) b.shield = (p.shield + (p.shieldLvl ?? 0) * h.level) * rm;
         if (p.reflect) b.reflect = p.reflect;
-        if (p.asPct) b.asPct = p.asPct;
-        if (p.msPct) b.msPct = p.msPct;
-        if (p.dmgPct) b.dmgPct = p.dmgPct;
+        if (p.asPct) b.asPct = p.asPct * rm;
+        if (p.msPct) b.msPct = p.msPct * rm;
+        if (p.dmgPct) b.dmgPct = p.dmgPct * rm;
         if (p.echoArrow) b.dmgPct = (b.dmgPct ?? 0) + p.echoArrow;
         if (p.dodge) b.dodge = p.dodge;
         if (p.armor) b.armor = p.armor;
@@ -988,8 +1019,8 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         if (p.blinkStrike) b.blinkStrike = true;
         if (p.plague) b.plagueSpread = true;
         if (p.lifesteal) b.lifesteal = p.lifesteal;
-        if (p.auraDps) { b.auraDps = (p.auraDps + (p.auraLvl ?? 0) * h.level) * h.d.spellAmp; b.auraR = p.auraR; }
-        if (p.drainDps) { b.drainDps = (p.drainDps + (p.drainLvl ?? 0) * h.level) * h.d.spellAmp; b.drainR = p.drainR; }
+        if (p.auraDps) { b.auraDps = (p.auraDps + (p.auraLvl ?? 0) * h.level) * h.d.spellAmp * rm; b.auraR = p.auraR; }
+        if (p.drainDps) { b.drainDps = (p.drainDps + (p.drainLvl ?? 0) * h.level) * h.d.spellAmp * rm; b.drainR = p.drainR; }
         h.buffs = h.buffs.filter(x => x.id !== ab.id);
         h.buffs.push(b);
         h.d = computeDerived(h);
@@ -1008,7 +1039,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
         } else {
           pos = { x: aim.x + (g.rng() - 0.5) * 110, y: aim.y + (g.rng() - 0.5) * 70 };
         }
-        spawnSummon(g, lane, pl.id, kind, pos, p.hp + h.level * 8, p.dmg + h.level * 1.2, p.range, p.speed, p.dur, ab.theme);
+        spawnSummon(g, lane, pl.id, kind, pos, (p.hp + h.level * 8) * rm, (p.dmg + h.level * 1.2) * rm, p.range, p.speed, p.dur, ab.theme);
       }
       emit(g, { t: 'impact', pos: { ...aim }, r: 60, theme: ab.theme, kind: 'summon' });
       break;
@@ -1026,23 +1057,23 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
       break;
     }
     case 'wall': {
-      makeZone(g, pl, 'wall', { ...aim }, p.len / 2, p.dur, { slow: p.slow, dps: p.dps * h.d.spellAmp, len: p.len }, ab.theme);
+      makeZone(g, pl, 'wall', { ...aim }, p.len / 2, p.dur, { slow: p.slow, dps: p.dps * h.d.spellAmp * rm, len: p.len }, ab.theme);
       break;
     }
     case 'zone': {
       let kind: ZoneKind = 'gravity';
       const zp: Record<string, number> = {};
-      if (p.root) { kind = 'root'; zp.root = p.root; zp.dps = (p.dps ?? 0) * h.d.spellAmp; }
+      if (p.root) { kind = 'root'; zp.root = p.root; zp.dps = (p.dps ?? 0) * h.d.spellAmp * rm; }
       else if (p.confuse) { kind = 'pollen'; zp.confuse = p.confuse; }
       else if (p.delay) { kind = 'collapse'; zp.dmg = dmg; zp.pull = p.pull ?? 0; }
-      else if (p.blackhole) { kind = 'blackhole'; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; zp.pull = p.pull; zp.burst = (p.burst ?? 0) * h.d.spellAmp; }
+      else if (p.blackhole) { kind = 'blackhole'; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp * rm; zp.pull = p.pull; zp.burst = (p.burst ?? 0) * h.d.spellAmp * rm; }
       else if (p.armor) { kind = 'banner'; zp.slow = p.slow; zp.armor = p.armor; }
       else if (ab.id === 'sporeburst') {
-        kind = 'spore'; zp.dps = (p.dps ?? 0) * h.d.spellAmp;
+        kind = 'spore'; zp.dps = (p.dps ?? 0) * h.d.spellAmp * rm;
         for (const u of foes()) if (dist(aim, u.pos) <= p.r) dmgUnit(g, u, dmg, 'magic', pl.team, { fromHero: h, isAbility: true });
       }
       else if (p.blind) {
-        kind = 'smog'; zp.blind = 1; zp.dps = (p.dps ?? 0) * h.d.spellAmp;
+        kind = 'smog'; zp.blind = 1; zp.dps = (p.dps ?? 0) * h.d.spellAmp * rm;
         if (p.dmg) {
           for (const u of foes()) {
             if (dist(aim, u.pos) <= p.r) {
@@ -1052,9 +1083,9 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
           }
         }
       }
-      else if (p.heal) { kind = 'sanctify'; zp.heal = p.heal + (p.healLvl ?? 0) * h.level; zp.slow = p.slow ?? 0; }
-      else if (ab.theme.shape === 'storm') { kind = 'storm'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; }
-      else { kind = 'gravity'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp; }
+      else if (p.heal) { kind = 'sanctify'; zp.heal = (p.heal + (p.healLvl ?? 0) * h.level) * rm; zp.slow = p.slow ?? 0; }
+      else if (ab.theme.shape === 'storm') { kind = 'storm'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp * rm; }
+      else { kind = 'gravity'; zp.slow = p.slow ?? 0; zp.dps = ((p.dps ?? 0) + (p.lvl ?? 0) * h.level) * h.d.spellAmp * rm; }
       const dur = kind === 'collapse' ? p.delay : (p.dur ?? 3);
       makeZone(g, pl, kind, { ...aim }, p.r, dur, zp, ab.theme);
       break;
@@ -1062,9 +1093,9 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
     case 'beam': {
       h.channel = { ability: ab.id, until: t + p.dur, startY: C.SPAWN_Y };
       makeZone(g, pl, ab.theme.shape === 'rats' ? 'rattide' : 'beamfire', { x: laneCenterX(lane), y: C.SPAWN_Y }, p.width, p.dur, {
-        dps: p.dps * h.d.spellAmp + h.level * 4,
+        dps: (p.dps * h.d.spellAmp + h.level * 4) * rm,
         width: p.width,
-        igniteDps: p.igniteDps * h.d.spellAmp,
+        igniteDps: p.igniteDps * h.d.spellAmp * rm,
         igniteDur: p.igniteDur,
         dur: p.dur,
       }, ab.theme);
@@ -1073,7 +1104,7 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
     case 'transform': {
       const b: Buff = {
         id: ab.id, until: t + p.dur, theme: ab.id,
-        dmgPct: p.dmgPct, armor: p.armor, scale: p.scale, cleaveArc: p.cleaveArc,
+        dmgPct: (p.dmgPct ?? 0) * rm, armor: p.armor, scale: p.scale, cleaveArc: p.cleaveArc,
       };
       h.buffs = h.buffs.filter(x => x.id !== ab.id);
       h.buffs.push(b);
@@ -1093,13 +1124,13 @@ function execAbility(g: GameState, pl: PlayerState, h: HeroState, ab: AbilityDef
     case 'callDown': {
       makeZone(g, pl, 'anvil', { ...aim }, p.r, p.delay, {
         dmg, stun: p.stun ?? 0,
-        fieldDur: p.fieldDur ?? 0, fieldSlow: p.fieldSlow ?? 0, fieldDps: (p.fieldDps ?? 0) * h.d.spellAmp,
+        fieldDur: p.fieldDur ?? 0, fieldSlow: p.fieldSlow ?? 0, fieldDps: (p.fieldDps ?? 0) * h.d.spellAmp * rm,
       }, ab.theme);
       break;
     }
     case 'mobileZone': {
       makeZone(g, pl, 'tempest', { ...aim }, p.r, p.dur, {
-        dps: p.dps * h.d.spellAmp + h.level * 3, pull: p.pull, drift: p.drift,
+        dps: (p.dps * h.d.spellAmp + h.level * 3) * rm, pull: p.pull, drift: p.drift,
       }, ab.theme);
       break;
     }
@@ -1165,7 +1196,7 @@ function placeTower(g: GameState, pl: PlayerState, ab: AbilityDef, aim: Vec) {
     r: p.r,
     hp: p.towerHp ?? 400,
     maxHp: p.towerHp ?? 400,
-    baseDmg: p.towerDmg ?? 0,
+    baseDmg: (p.towerDmg ?? 0) * rankMult(ab.slot, pl.hero.ranks[ab.slot]),
     baseRange: p.towerRange ?? 0,
     fireRate: p.fireRate ?? 0.85,
     splash: p.splash ?? 0,
@@ -1466,7 +1497,7 @@ function updateUnits(g: GameState, dt: number) {
     const disarmed = t < u.disarmUntil;
     const blinded = t < u.missUntil;
     const slowMult = t < u.slowUntil ? 1 - u.slowPct : 1;
-    const speed = def.speed * (1 + u.spdBuffPct) * slowMult;
+    const speed = def.speed * (1 + u.spdBuffPct) * slowMult * (def.neutral ? 1 : C.UNIT_SPEED_MULT);
     const dmgOut = def.dmg * (1 + u.dmgBuffPct) * (def.neutral ? 1 : C.UNIT_DMG_MULT);
 
     // wildlife: neutral, harmless, wanders the lane until hunted or it leaves

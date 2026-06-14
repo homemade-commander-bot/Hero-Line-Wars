@@ -6,7 +6,7 @@
 import type { GameState, PlayerState, TeamId } from './types';
 import { C, DIFFICULTY, type Difficulty, xpNeed } from './data/constants';
 import { ABILITY_BY_ID, ATTR_COLOR, ATTR_LABEL, HEROES, HERO_BY_ID } from './data/heroes';
-import { UNITS, UNIT_BY_ID } from './data/units';
+import { UNITS, UNIT_BY_ID, UNIT_HOTKEY } from './data/units';
 import { BASIC_ITEMS, FORGED_ITEMS, ITEM_BY_ID } from './data/items';
 import { abilityOf, playerById, repairCost, sellValue, statCost } from './engine';
 import { abilityIconCanvas, heroPortraitCanvas, itemIconCanvas, unitIconCanvas } from './render';
@@ -234,6 +234,7 @@ export interface HudActions {
   repair(): void;
   useItem(slot: number): void;
   sellItem(slot: number): void;
+  allocSkill(slot: number): void;
   togglePause(): void;
   toggleMute(): boolean;
   setSpeed(n: number): number;
@@ -246,10 +247,11 @@ interface HudRefs {
   gold: HTMLElement; income: HTMLElement; clock: HTMLElement; twilight: HTMLElement;
   hpFill: HTMLElement; hpText: HTMLElement; mpFill: HTMLElement; mpText: HTMLElement;
   level: HTMLElement; xp: HTMLElement; statsLine: HTMLElement;
-  abSlots: { veil: HTMLElement; slot: HTMLElement; mana: HTMLElement }[];
+  abSlots: { veil: HTMLElement; slot: HTMLElement; mana: HTMLElement; pips: HTMLElement; plus: HTMLElement }[];
   itemSlots: HTMLElement[];
   queueBar: HTMLElement | null;
   portraitBox: HTMLElement;
+  skillBadge: HTMLElement;
   speedBtn: HTMLElement;
   muteBtn: HTMLElement;
 }
@@ -268,7 +270,7 @@ function hudPlayer(): PlayerState {
   return playerById(hudGame!, hudPlayerId);
 }
 
-export function buildHud(g: GameState, playerId: number, actions: HudActions, isSpectate: boolean) {
+export function buildHud(g: GameState, playerId: number, actions: HudActions, isSpectate: boolean, initialSpeed = 1) {
   hudGame = g; hudPlayerId = playerId; hudActions = actions; spectate = isSpectate;
   panelTab = null;
   intelSig = ['', ''];
@@ -324,7 +326,7 @@ export function buildHud(g: GameState, playerId: number, actions: HudActions, is
   top.appendChild(sides[1]);
 
   const btns = el('div', 'top-buttons');
-  const speedBtn = el('button', 'btn btn-tiny', '1×');
+  const speedBtn = el('button', 'btn btn-tiny', `${initialSpeed}×`);
   speedBtn.onclick = () => { const s = actions.setSpeed(0); speedBtn.textContent = `${s}×`; sfx.click(); };
   bindTooltip(speedBtn, () => '<div class="tt-body">Game speed</div>');
   const pauseBtn = el('button', 'btn btn-tiny', '⏸');
@@ -348,11 +350,13 @@ export function buildHud(g: GameState, playerId: number, actions: HudActions, is
   const xp = el('div', 'hb-xp');
   const xpFill = el('div');
   xp.appendChild(xpFill);
-  pbox.append(lvl, xp);
+  const skillBadge = el('div', 'hb-skill hidden');
+  pbox.append(lvl, xp, skillBadge);
   bottom.appendChild(pbox);
   refs.level = lvl;
   refs.xp = xpFill;
   refs.portraitBox = pbox;
+  refs.skillBadge = skillBadge;
 
   const vitals = el('div', 'hb-vitals');
   vitals.appendChild(el('div', 'hb-name', `${hdef.name} <span style="color:#9a8fc4;font-size:13px">${hdef.epithet}</span>`));
@@ -377,15 +381,28 @@ export function buildHud(g: GameState, playerId: number, actions: HudActions, is
     slot.appendChild(el('div', 'key', ABILITY_KEYS[i]));
     const mana = el('div', 'mana', String(ab.mana));
     slot.appendChild(mana);
+    // rank pips (filled by skill points spent)
+    const pips = el('div', 'ab-pips');
+    const maxR = i === 3 ? 3 : 5;
+    for (let r = 0; r < maxR; r++) pips.appendChild(el('span', 'pip'));
+    slot.appendChild(pips);
+    const plus = el('div', 'ab-plus hidden', '+');
+    slot.appendChild(plus);
     const veil = el('div', 'cd-veil hidden');
     slot.appendChild(veil);
+    slot.onclick = () => actions.allocSkill(i);
     bindTooltip(slot, () => {
-      const a = ABILITY_BY_ID[hudPlayer().hero.loadout[i]];
-      return `<div class="tt-title">${a.name}</div><div class="tt-sub">${a.cat}${i === 3 ? ' · unlocks at level ' + C.ULT_LEVEL : ''}</div>` +
-        `<div class="tt-body">${a.desc}</div><div class="tt-meta">${a.cd}s cooldown · ${a.mana} mana · key <b>${ABILITY_KEYS[i]}</b></div>`;
+      const h2 = hudPlayer().hero;
+      const a = ABILITY_BY_ID[h2.loadout[i]];
+      const rank = h2.ranks[i];
+      const learn = rank < 1
+        ? (i === 3 ? `<div class="tt-meta" style="color:#ffd86b">Click to learn (needs a skill point at level ${C.ULT_LEVEL})</div>` : '<div class="tt-meta" style="color:#ffd86b">Click to learn — spend a skill point</div>')
+        : `<div class="tt-meta">Rank ${rank}/${i === 3 ? 3 : 5}${h2.skillPoints > 0 ? ' · click to rank up' : ''}</div>`;
+      return `<div class="tt-title">${a.name}</div><div class="tt-sub">${a.cat}${i === 3 ? ' · ult ranks at 6/11/16' : ''}</div>` +
+        `<div class="tt-body">${a.desc}</div><div class="tt-meta">${a.cd}s cooldown · ${a.mana} mana · key <b>${ABILITY_KEYS[i]}</b></div>${learn}`;
     });
     abs.appendChild(slot);
-    refs.abSlots!.push({ veil, slot, mana });
+    refs.abSlots!.push({ veil, slot, mana, pips, plus });
   }
   bottom.appendChild(abs);
 
@@ -408,7 +425,7 @@ export function buildHud(g: GameState, playerId: number, actions: HudActions, is
   const bCouncil = el('button', 'btn', '♜ War Council <kbd>V</kbd>');
   bCouncil.onclick = () => { sfx.click(); togglePanel('council'); };
   right.append(bBar, bForge, bCouncil);
-  right.appendChild(el('div', 'hint', spectate ? 'Watching the war unfold…' : 'Click to move. Send monsters. Grow rich.'));
+  right.appendChild(el('div', 'hint', spectate ? 'Watching the war unfold…' : 'Click to move · 1–9,0 send units · click abilities to rank up'));
   bottom.appendChild(right);
 
   R = refs as HudRefs;
@@ -462,20 +479,24 @@ function renderPanel() {
       for (const u of UNITS.filter(x => x.tier === tier)) {
         const card = el('div', `unit-card${locked ? ' locked' : ''}`);
         card.dataset.unit = u.id;
-        card.appendChild(unitIconCanvas(u.id, 44));
+        const iconWrap = el('div', 'uc-icon');
+        iconWrap.appendChild(unitIconCanvas(u.id, 44));
+        const hk = UNIT_HOTKEY[u.id];
+        if (hk) iconWrap.appendChild(el('div', 'uc-key', hk.toUpperCase()));
+        card.appendChild(iconWrap);
         const mid = el('div', 'uc-mid');
         mid.appendChild(el('div', 'uc-name', u.name + (u.legendary ? ' ⚜' : '')));
         mid.appendChild(el('div', 'uc-trait', u.trait));
         card.appendChild(mid);
         const right = el('div', 'uc-right');
         right.appendChild(el('div', 'uc-cost', `${u.cost}g`));
-        right.appendChild(el('div', 'uc-inc', `+${u.income}/30s`));
+        right.appendChild(el('div', 'uc-inc', `+${u.income}/${C.INCOME_PERIOD}s`));
         card.appendChild(right);
         bindTooltip(card, () =>
           `<div class="tt-title">${u.name}</div>` +
           `<div class="tt-sub">Tier ${u.tier}${u.flying ? ' · Flying' : ''}${u.legendary ? ' · LEGENDARY' : ''}</div>` +
           `<div class="tt-body">${u.trait}</div>` +
-          `<div class="tt-meta">${u.hp} hp · ${u.dmg} dmg · cost ${u.cost}g · <span style="color:#7df3a0">+${u.income} income (${(u.income / u.cost * 100).toFixed(1)}g per 100g)</span><br/>Click to send · Shift-click ×5</div>`);
+          `<div class="tt-meta">${u.hp} hp · ${u.dmg} dmg · cost ${u.cost}g · <span style="color:#7df3a0">+${u.income} income (${(u.income / u.cost * 100).toFixed(1)}g per 100g)</span><br/>Hotkey <b>${(UNIT_HOTKEY[u.id] || '').toUpperCase()}</b> · click or Shift-click ×5</div>`);
         card.onclick = (ev) => {
           if (locked) { toast(`Requires Keep ${'I'.repeat(tier)}`); return; }
           actions.send(u.id, ev.shiftKey ? 5 : 1);
@@ -703,22 +724,40 @@ export function updateHud(g: GameState) {
     R.portraitBox.style.filter = hero.dead ? 'grayscale(1) brightness(0.55)' : '';
   }
 
+  const canRankUp = (slot: number) => {
+    if (hero.skillPoints <= 0) return false;
+    const rank = hero.ranks[slot];
+    if (slot === 3) return rank < 3 && hero.level >= [6, 11, 16][rank];
+    return rank < 5;
+  };
   for (let i = 0; i < 4; i++) {
-    const { veil, slot, mana } = R.abSlots[i];
+    const { veil, slot, mana, pips, plus } = R.abSlots[i];
     const ab = ABILITY_BY_ID[hero.loadout[i]];
-    const locked = i === 3 && hero.level < C.ULT_LEVEL;
+    const rank = hero.ranks[i];
+    const learned = rank >= 1;
     const cdLeft = hero.cds[i] - t;
-    slot.classList.toggle('locked', locked);
-    slot.classList.toggle('no-mana', !locked && hero.mana < ab.mana);
-    if (locked) {
+    // rank pips
+    const pipEls = pips.children;
+    for (let r = 0; r < pipEls.length; r++) pipEls[r].classList.toggle('on', r < rank);
+    // allocate badge
+    plus.classList.toggle('hidden', !canRankUp(i));
+    slot.classList.toggle('learnable', canRankUp(i));
+    slot.classList.toggle('unlearned', !learned);
+    slot.classList.toggle('no-mana', learned && hero.mana < ab.mana);
+    if (!learned) {
       veil.classList.remove('hidden');
-      veil.textContent = `LVL ${C.ULT_LEVEL}`;
+      veil.textContent = i === 3 && hero.level < C.ULT_LEVEL ? `LVL ${C.ULT_LEVEL}` : 'LEARN';
     } else if (cdLeft > 0) {
       veil.classList.remove('hidden');
       veil.textContent = cdLeft >= 9.5 ? String(Math.ceil(cdLeft)) : cdLeft.toFixed(1);
     } else veil.classList.add('hidden');
     mana.textContent = String(ab.mana);
   }
+  // skill-point badge on the portrait
+  if (hero.skillPoints > 0) {
+    R.skillBadge.classList.remove('hidden');
+    R.skillBadge.textContent = `+${hero.skillPoints} skill`;
+  } else R.skillBadge.classList.add('hidden');
 
   const sig = hero.items.map(i => i?.defId ?? '_').join(',');
   if (sig !== lastItemSig) {

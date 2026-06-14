@@ -10,25 +10,25 @@ export const UNITS: UnitDef[] = [
   // ------------------------------------------------------------- Tier 1
   {
     id: 'goblin', name: 'Goblin Cutpurse', tier: 1, cost: 15, income: 1.8,
-    hp: 60, dmg: 6, speed: 88, range: 30,
+    hp: 78, dmg: 6, speed: 88, range: 30,
     special: 'cutpurse', trait: 'Fast. Hits on the castle also steal 2 gold.',
     pal: { a: '#6fae4e', b: '#3c5d2a', c: '#e3b341' },
   },
   {
     id: 'skeleton', name: 'Skeleton Footman', tier: 1, cost: 22, income: 2.7,
-    hp: 105, dmg: 9, speed: 60, range: 30,
+    hp: 130, dmg: 9, speed: 60, range: 30,
     trait: 'Cheap, tireless, replaceable. The backbone of every horde.',
     pal: { a: '#e8e4d8', b: '#9a948a', c: '#4a4440' },
   },
   {
     id: 'wolf', name: 'Briarfang Wolf', tier: 1, cost: 38, income: 4.8,
-    hp: 150, dmg: 13, speed: 95, range: 32,
+    hp: 178, dmg: 13, speed: 95, range: 32,
     special: 'pack', trait: 'Pack hunter: +3 damage per nearby wolf (max +15).',
     pal: { a: '#7a6a58', b: '#4a3f33', c: '#c9484e' },
   },
   {
     id: 'imp', name: 'Imp Saboteur', tier: 1, cost: 50, income: 6.5,
-    hp: 80, dmg: 7, speed: 72, range: 28,
+    hp: 96, dmg: 7, speed: 72, range: 28,
     special: 'explode', trait: 'Detonates on death: 90 damage to the enemy hero and summons nearby.',
     pal: { a: '#d14f3a', b: '#7a2820', c: '#ffb347' },
   },
@@ -128,3 +128,12 @@ export function bounty(def: UnitDef, raised: boolean): number {
   if (def.neutral) return def.bounty ?? 10;
   return raised ? 5 : Math.ceil(def.cost * 0.45);
 }
+
+/** Send hotkeys — every barracks unit has a key (number row, then T Y U I for tier 3). */
+export const UNIT_HOTKEY: Record<string, string> = {
+  goblin: '1', skeleton: '2', wolf: '3', imp: '4',
+  ogre: '5', priest: '6', banner: '7', revenant: '8', harpy: '9',
+  golem: '0', necro: 't', siege: 'y', wyvern: 'u', avatar: 'i',
+};
+export const HOTKEY_UNIT: Record<string, string> =
+  Object.fromEntries(Object.entries(UNIT_HOTKEY).map(([u, k]) => [k, u]));

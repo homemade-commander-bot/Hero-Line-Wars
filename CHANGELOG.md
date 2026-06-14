@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.0] — 2026-06-14
+
+The "leveling & feel" patch — skill-point progression, faster pace, unit hotkeys, richer icons.
+
+### Added
+- **Skill-point leveling.** Each level grants a skill point; click an ability (or its green **+**) to learn or rank it up. Abilities you haven't learned can't be cast, and power scales with rank (basics rank 1–5, ultimate ranks at levels 6/11/16). Ability slots now show rank pips, a glowing LEARN/+ badge, and a "+N skill" badge on the portrait. The AI allocates its own points (opener first, ult on cooldown, then maxes its main).
+- **Unit hotkeys.** Every barracks monster has a send key (number row `1`–`9` `0`, then `T Y U I` for tier 3); Shift sends ×5. Keys work whether or not the panel is open, and each unit card shows its key.
+
+### Changed
+- **Faster pace.** Default game speed is now 1.5× (options 1/1.5/2/3), the march is brisker, and heroes move a touch faster — the game no longer feels sluggish at base speed.
+- **Ability icons** repainted as framed, glowing spell-tiles (theme-lit, bold motifs, ornate gold frames for ultimates) instead of thin line glyphs.
+- **Early game rebalanced.** Heroes no longer trivialize early waves: with the skill system they start with a single learned ability, and tier-1 monsters are chunkier (+~30% base HP). Castles toughened (3000→3500) to keep matches from snowballing too fast.
+
+### Balance
+- 40-match sim: median ~20 min, 88% in the 15–45 window (a few early blowouts remain — weak early heroes can get snowballed). Tarvek ~55%. Hero spread is noisy on small samples and wants human playtesting.
+
 ## [0.6.0] — 2026-06-14
 
 The "destructible towers" patch — from playtest feedback that a Tarvek with all his towers placed felt like a hero with no abilities left.

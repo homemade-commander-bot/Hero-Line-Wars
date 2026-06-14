@@ -878,22 +878,35 @@ export function abilityIconCanvas(ab: AbilityDef, size = 48): HTMLCanvasElement 
   const cv = document.createElement('canvas');
   cv.width = cv.height = size;
   const ctx = cv.getContext('2d')!;
-  const grad = ctx.createLinearGradient(0, 0, size, size);
-  grad.addColorStop(0, ab.theme.c2);
-  grad.addColorStop(1, '#0e0b16');
-  ctx.fillStyle = grad;
-  rr(ctx, 0, 0, size, size, 8);
+  // painted tile: dark base, theme glow from above, a diagonal sheen
+  const base = ctx.createLinearGradient(0, 0, size, size);
+  base.addColorStop(0, sh(ab.theme.c2, 0.06));
+  base.addColorStop(0.55, '#171221');
+  base.addColorStop(1, '#0b0912');
+  ctx.fillStyle = base;
+  rr(ctx, 0, 0, size, size, 9);
   ctx.fill();
-  const rg = ctx.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, size * 0.66);
-  rg.addColorStop(0, ab.theme.c1 + '33');
+  ctx.save();
+  rr(ctx, 0, 0, size, size, 9); ctx.clip();
+  const rg = ctx.createRadialGradient(size / 2, size * 0.4, 2, size / 2, size * 0.4, size * 0.72);
+  rg.addColorStop(0, ab.theme.c1 + '66');
   rg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = rg;
   ctx.fillRect(0, 0, size, size);
+  ctx.globalAlpha = 0.07;
+  ctx.fillStyle = '#ffffff';
+  poly(ctx, [[0, 0], [size * 0.55, 0], [0, size * 0.55]]);
+  ctx.fill();
+  ctx.restore();
   const cx = size / 2, cy = size / 2;
-  ctx.strokeStyle = ab.theme.c1;
+  ctx.save();
+  ctx.shadowColor = ab.theme.c1;
+  ctx.shadowBlur = size * 0.14;
+  ctx.strokeStyle = sh(ab.theme.c1, 0.2);
   ctx.fillStyle = ab.theme.c1;
-  ctx.lineWidth = 2.6;
+  ctx.lineWidth = 3.2;
   ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   switch (ab.kind) {
     case 'coneSlash':
       ctx.beginPath(); ctx.arc(cx - 6, cy + 4, size * 0.38, -0.9, 0.7); ctx.stroke();
@@ -973,11 +986,23 @@ export function abilityIconCanvas(ab: AbilityDef, size = 48): HTMLCanvasElement 
       poly(ctx, [[cx - 6, cy + size * 0.16], [cx + 6, cy + size * 0.16], [cx, cy + size * 0.32]]); ctx.fill();
       break;
   }
-  if (ab.cat === 'Ultimate') {
-    ctx.strokeStyle = '#ffd86b';
-    ctx.lineWidth = 2;
-    rr(ctx, 1, 1, size - 2, size - 2, 7);
-    ctx.stroke();
+  ctx.restore(); // clear the glyph glow/shadow
+  // ornate frame — gold and thicker for ultimates
+  const ult = ab.cat === 'Ultimate';
+  ctx.strokeStyle = ult ? '#ffd86b' : 'rgba(180,172,212,0.55)';
+  ctx.lineWidth = ult ? 2.6 : 1.6;
+  rr(ctx, 1.5, 1.5, size - 3, size - 3, 8);
+  ctx.stroke();
+  // inner bevel highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(4.5, size - 5); ctx.lineTo(4.5, 4.5); ctx.lineTo(size - 5, 4.5);
+  ctx.stroke();
+  // corner studs
+  ctx.fillStyle = ult ? '#ffd86b' : '#5a5478';
+  for (const [sx, sy] of [[4.5, 4.5], [size - 4.5, 4.5], [4.5, size - 4.5], [size - 4.5, size - 4.5]] as const) {
+    circle(ctx, sx, sy, ult ? 1.8 : 1.4); ctx.fill();
   }
   return cv;
 }
@@ -1576,6 +1601,9 @@ export class Renderer {
         case 'levelup':
           this.float({ x: e.pos.x, y: e.pos.y - 30 }, 'LEVEL UP!', '#ffe9a0', 16, true);
           this.ring(e.pos, '#ffe9a0', 3);
+          break;
+        case 'skillup':
+          this.burst({ x: e.pos.x, y: e.pos.y - 10 }, 8, '#7df3a0', 'spark', 2.4);
           break;
         case 'forge': {
           const item = ITEM_BY_ID[e.itemId];
