@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.1] — 2026-06-14
+
+Small fixes from playtest feedback.
+
+### Fixed
+- **Concede now asks for confirmation** ("Concede this battle?" with Confirm/Cancel) so you can't surrender by a stray click.
+- **Top HUD no longer crowds the URL bar** — the board reserves a margin and centers within it, so income/castle status always sit clear of browser chrome.
+- **Menu/README copy** no longer says "Two champions" (misleading for the 3v3 default) — now "Two keeps, two warbands."
+
 ## [0.7.0] — 2026-06-14
 
 The "leveling & feel" patch — skill-point progression, faster pace, unit hotkeys, richer icons.

@@ -50,11 +50,12 @@ function fitScreen() {
   const vv = window.visualViewport;
   const vw = vv?.width ?? innerWidth;
   const vh = vv?.height ?? innerHeight;
-  const scale = Math.min(vw / 1600, vh / 1080);
+  // reserve a margin (extra at the top) so the income/castle HUD never sits
+  // flush against — or under — the browser's URL bar
+  const TOP_PAD = 22, BOT_PAD = 8;
+  const scale = Math.min(vw / 1600, (vh - TOP_PAD - BOT_PAD) / 1080);
   const ox = Math.max(0, (vw - 1600 * scale) / 2);
-  // anchor to the top (don't vertically center) so the HUD top bar always sits
-  // at the very top of the visible area, never clipped
-  const oy = Math.max(0, (vh - 1080 * scale) * 0.04);
+  const oy = TOP_PAD + Math.max(0, (vh - TOP_PAD - BOT_PAD - 1080 * scale) / 2);
   const tf = `translate(${ox.toFixed(1)}px, ${oy.toFixed(1)}px) scale(${scale.toFixed(4)})`;
   if (tf !== lastFit) {
     lastFit = tf;

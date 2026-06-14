@@ -409,6 +409,18 @@ kbd {
   100% { opacity: 0; transform: translateY(-10px); }
 }
 
+/* confirm dialog (concede etc.) */
+.confirm-veil { position: absolute; inset: 0; background: rgba(5, 4, 10, 0.62); display: flex; align-items: center; justify-content: center; z-index: 60; }
+.confirm-box {
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 14px;
+  padding: 26px 34px; text-align: center; box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+  min-width: 340px;
+}
+.confirm-title { font-family: var(--font-head); font-weight: 900; font-size: 24px; color: var(--gold-bright); }
+.confirm-sub { font-style: italic; color: #b9a8e8; margin: 6px 0 18px; }
+.confirm-row { display: flex; gap: 12px; justify-content: center; }
+.confirm-row .btn { min-width: 130px; }
+
 /* pause veil */
 #pause-veil { position: absolute; inset: 0; background: rgba(5, 4, 10, 0.55); display: flex; align-items: center; justify-content: center; z-index: 25; }
 .pause-text { font-family: var(--font-head); font-size: 54px; font-weight: 900; color: var(--gold-bright); letter-spacing: 0.2em; text-shadow: 0 0 40px rgba(227, 179, 65, 0.5); }

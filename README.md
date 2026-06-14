@@ -1,7 +1,7 @@
 # ⚔ Hero Line Wars — Sundered Vale
 
 A browser strategy game inspired by the classic *Hero Line Wars* custom map from Warcraft III.
-Two keeps. Two champions. One law: **every monster you send to their gate fattens your coffers —
+Two keeps, two warbands. One law: **every monster you send to their gate fattens your coffers —
 every monster they send is yours to slay.**
 
 Built with TypeScript + HTML5 Canvas. **Zero runtime dependencies, zero assets** — every sprite,

@@ -48,6 +48,27 @@ document.addEventListener('mousemove', e => {
   tt.style.top = `${y}px`;
 });
 
+/** A small in-game yes/no confirm (used for conceding). */
+export function confirmDialog(title: string, sub: string, yesLabel: string, onYes: () => void) {
+  const wrap = $('game-wrap');
+  const old = wrap.querySelector('.confirm-veil');
+  if (old) old.remove();
+  const veil = el('div', 'confirm-veil');
+  const box = el('div', 'confirm-box');
+  box.appendChild(el('div', 'confirm-title', title));
+  if (sub) box.appendChild(el('div', 'confirm-sub', sub));
+  const row = el('div', 'confirm-row');
+  const yes = el('button', 'btn btn-primary', yesLabel);
+  const no = el('button', 'btn', 'Cancel');
+  yes.onclick = () => { sfx.click(); veil.remove(); onYes(); };
+  no.onclick = () => { sfx.click(); veil.remove(); };
+  veil.onclick = (e) => { if (e.target === veil) veil.remove(); };
+  row.append(no, yes);
+  box.appendChild(row);
+  veil.appendChild(box);
+  wrap.appendChild(veil);
+}
+
 export function screen(name: 'menu' | 'select' | 'game' | 'end') {
   for (const s of ['menu', 'select', 'game', 'end']) {
     $(`screen-${s}`).classList.toggle('hidden', s !== name);
@@ -334,7 +355,7 @@ export function buildHud(g: GameState, playerId: number, actions: HudActions, is
   const muteBtn = el('button', 'btn btn-tiny', '🔊');
   muteBtn.onclick = () => { muteBtn.textContent = actions.toggleMute() ? '🔇' : '🔊'; };
   const quitBtn = el('button', 'btn btn-tiny', '⚐ Concede');
-  quitBtn.onclick = () => { sfx.click(); actions.quit(); };
+  quitBtn.onclick = () => { sfx.click(); confirmDialog('Concede this battle?', 'The Vale will remember your surrender.', '⚐ Concede', () => actions.quit()); };
   btns.append(speedBtn, pauseBtn, muteBtn, quitBtn);
   top.appendChild(btns);
   refs.speedBtn = speedBtn;
