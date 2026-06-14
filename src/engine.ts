@@ -8,7 +8,7 @@
 
 import type {
   AbilityDef, Buff, GameEvent, GameState, HeroDerived, HeroState,
-  PlayerState, SummonState, TeamId, TeamState, UnitState, Vec, Zone, ZoneKind,
+  PlayerState, SummonState, TeamId, TeamState, TowerState, UnitState, Vec, Zone, ZoneKind,
 } from './types';
 import { C, DIFFICULTY, armorReduction, castlePos, fountainPos, laneCenterX, laneOf, mulberry32, xpNeed } from './data/constants';
 import { ABILITY_BY_ID, HERO_BY_ID, HEROES } from './data/heroes';
@@ -727,14 +727,15 @@ function spawnUnit(g: GameState, defId: string, owner: TeamId, pos: Vec | null, 
     x: laneCenterX(lane) + (g.rng() - 0.5) * (L.x1 - L.x0 - 140),
     y: C.SPAWN_Y + g.rng() * 26,
   };
+  const hp0 = def.neutral ? def.hp : Math.round(def.hp * C.UNIT_HP_MULT);
   const u: UnitState = {
     id: g.nextId++,
     defId,
     lane,
     owner,
     pos: p,
-    hp: def.hp,
-    maxHp: def.hp,
+    hp: hp0,
+    maxHp: hp0,
     slowUntil: 0, slowPct: 0, ccUntil: 0, airborneUntil: 0, fearUntil: 0, confuseUntil: 0,
     missUntil: 0, disarmUntil: 0,
     dots: [],
@@ -1466,7 +1467,7 @@ function updateUnits(g: GameState, dt: number) {
     const blinded = t < u.missUntil;
     const slowMult = t < u.slowUntil ? 1 - u.slowPct : 1;
     const speed = def.speed * (1 + u.spdBuffPct) * slowMult;
-    const dmgOut = def.dmg * (1 + u.dmgBuffPct);
+    const dmgOut = def.dmg * (1 + u.dmgBuffPct) * (def.neutral ? 1 : C.UNIT_DMG_MULT);
 
     // wildlife: neutral, harmless, wanders the lane until hunted or it leaves
     if (u.wild) {
@@ -1619,6 +1620,23 @@ function updateUnits(g: GameState, dt: number) {
         }
       }
 
+      // towers are destructible — a unit passing one smashes it; enough pressure razes the wall
+      if (!engaged && !disarmed && !blinded && t >= u.attackReadyAt && g.towers.length > 0) {
+        let twTarget: TowerState | null = null;
+        let bd = Infinity;
+        for (const w of g.towers) {
+          if (w.lane !== u.lane) continue;
+          const d = dist(w.pos, u.pos);
+          if (d <= def.range + w.r + 6 && d < bd) { bd = d; twTarget = w; }
+        }
+        if (twTarget) {
+          u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
+          engaged = true; // slow down while smashing it
+          twTarget.hp -= dmgOut;
+          if (twTarget.hp <= 0) emit(g, { t: 'impact', pos: { ...twTarget.pos }, r: twTarget.r, theme: twTarget.theme, kind: 'towerfall' });
+        }
+      }
+
       const moveMult = engaged ? C.UNIT_ENGAGE_SLOW : 1;
       const stepLen = speed * moveMult * dt;
       // towers don't wall the lane — units march on and just slide around them
@@ -1741,11 +1759,11 @@ function updateTowers(g: GameState, dt: number) {
       pr.vel = { x: (dx / len) * 680, y: (dy / len) * 680 };
     }
   }
-  // expire any non-permanent towers (the rework makes them permanent, but keep the path)
+  // remove destroyed towers (units smash them down) or any timed-out ones
   for (let i = g.towers.length - 1; i >= 0; i--) {
     const tw = g.towers[i];
     if (t >= tw.until || tw.hp <= 0) {
-      emit(g, { t: 'impact', pos: { ...tw.pos }, r: tw.r, theme: tw.theme, kind: 'blink' });
+      emit(g, { t: 'impact', pos: { ...tw.pos }, r: tw.r, theme: tw.theme, kind: tw.hp <= 0 ? 'towerfall' : 'blink' });
       g.towers.splice(i, 1);
       invalidateFlow(g, tw.lane);
     }

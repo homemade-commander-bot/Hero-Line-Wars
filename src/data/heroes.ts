@@ -465,31 +465,31 @@ const tarvek: HeroDef = {
     [
       ab('tarvek', 0, 'Assault', 'buildTower', 'ballista', 'Ballista Spire',
         'Build a single-target spire that hammers the deepest invader. Cheap and quick to raise — line a row of them along the march. Scales with your damage & spell items.',
-        4, 16, { perm: 1, goldCost: 45, r: 26, towerHp: 600, towerDmg: 11, towerRange: 240, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#4a4a3a', shape: 'ballista' }),
+        4, 16, { perm: 1, goldCost: 45, r: 26, towerHp: 520, towerDmg: 13, towerRange: 240, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#4a4a3a', shape: 'ballista' }),
       ab('tarvek', 0, 'Assault', 'buildTower', 'splinter', 'Splinter Spire',
         'A rapid spire spitting splinter-bolts — less per hit, but it never stops. Best where the lane bottlenecks.',
-        4, 16, { perm: 1, goldCost: 40, r: 26, towerHp: 600, towerDmg: 5, towerRange: 200, fireRate: 0.4 }, { c1: '#ffe09a', c2: '#4a4a3a', shape: 'ballista' }),
+        4, 16, { perm: 1, goldCost: 40, r: 26, towerHp: 520, towerDmg: 6, towerRange: 200, fireRate: 0.4 }, { c1: '#ffe09a', c2: '#4a4a3a', shape: 'ballista' }),
     ],
     [
       ab('tarvek', 1, 'Control', 'buildTower', 'frostpylon', 'Frost Pylon',
         'A pylon that chills all who pass within its ring — a hard slow and light frost damage. Stretch the gauntlet; keep them in the fire.',
-        4.5, 18, { perm: 1, goldCost: 55, r: 28, towerHp: 700, towerDmg: 3, towerRange: 145, towerSlow: 0.35, aura: 1, fireRate: 0.5 }, { c1: '#a8e0ff', c2: '#2a4a6a', shape: 'frost' }),
+        4.5, 18, { perm: 1, goldCost: 55, r: 28, towerHp: 560, towerDmg: 3, towerRange: 145, towerSlow: 0.35, aura: 1, fireRate: 0.5 }, { c1: '#a8e0ff', c2: '#2a4a6a', shape: 'frost' }),
       ab('tarvek', 1, 'Control', 'buildTower', 'tarpylon', 'Tar Pylon',
         'Weeps hot tar in a wide ring — a brutal slow with a creeping burn. Cheaper slow, no frost spike.',
-        4.5, 18, { perm: 1, goldCost: 50, r: 28, towerHp: 700, towerDmg: 4, towerRange: 145, towerSlow: 0.4, aura: 1, dot: 6, fireRate: 0.5 }, { c1: '#caa23a', c2: '#3a2e10', shape: 'tar' }),
+        4.5, 18, { perm: 1, goldCost: 50, r: 28, towerHp: 560, towerDmg: 5, towerRange: 145, towerSlow: 0.4, aura: 1, dot: 6, fireRate: 0.5 }, { c1: '#caa23a', c2: '#3a2e10', shape: 'tar' }),
     ],
     [
       ab('tarvek', 2, 'Arcana', 'buildTower', 'tempestcoil', 'Tempest Coil',
         'A storm-coil that arcs lightning across a cluster and strikes flyers from the sky — +60% to airborne. Your anti-air and your crowd-clearer in one.',
-        5.5, 24, { perm: 1, goldCost: 75, r: 28, towerHp: 650, towerDmg: 9, towerRange: 200, splash: 75, bonusAir: 0.6, fireRate: 1.05 }, { c1: '#7db8ff', c2: '#2d2150', shape: 'tempest' }),
+        5.5, 24, { perm: 1, goldCost: 75, r: 28, towerHp: 520, towerDmg: 11, towerRange: 200, splash: 75, bonusAir: 0.6, fireRate: 1.05 }, { c1: '#7db8ff', c2: '#2d2150', shape: 'tempest' }),
       ab('tarvek', 2, 'Arcana', 'buildTower', 'flamebattery', 'Flame Battery',
         'Gouts burning splash across the ground — bigger blast, no anti-air. For packed ground hordes.',
-        5.5, 24, { perm: 1, goldCost: 70, r: 28, towerHp: 650, towerDmg: 11, towerRange: 180, splash: 95, fireRate: 1.15 }, { c1: '#ff7733', c2: '#4a2a1a', shape: 'flame' }),
+        5.5, 24, { perm: 1, goldCost: 70, r: 28, towerHp: 520, towerDmg: 13, towerRange: 180, splash: 95, fireRate: 1.15 }, { c1: '#ff7733', c2: '#4a2a1a', shape: 'flame' }),
     ],
   ],
   ult: ab('tarvek', 3, 'Ultimate', 'buildTower', 'citadel', 'Citadel of Ages',
     'The masterwork: a towering fortress-cannon that scatters devastating fire across a wide field, slows the survivors, and answers the skies. Long to raise, permanent once built — place it where the maze ends.',
-    80, 110, { perm: 1, goldCost: 250, r: 46, towerHp: 4000, towerDmg: 34, towerRange: 280, splash: 125, bonusAir: 0.6, towerSlow: 0.3, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#ff7733', shape: 'citadel' }),
+    80, 110, { perm: 1, goldCost: 250, r: 46, towerHp: 3400, towerDmg: 40, towerRange: 280, splash: 125, bonusAir: 0.6, towerSlow: 0.3, fireRate: 0.9 }, { c1: '#ffcf5b', c2: '#ff7733', shape: 'citadel' }),
 };
 
 // ---------------------------------------------------------------------------

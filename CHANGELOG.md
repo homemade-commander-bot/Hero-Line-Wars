@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0] — 2026-06-14
+
+The "destructible towers" patch — from playtest feedback that a Tarvek with all his towers placed felt like a hero with no abilities left.
+
+### Changed
+- **Towers are now destroyed by enemy units.** Monsters marching past a tower smash it (the tower shows a health bar and collapses with a rubble burst when it falls). Since towers are permanent-until-killed, a defended lane is under constant attrition — Tarvek must keep rebuilding, so he always has something to do, and a strong enough push tears the wall down and breaks through.
+- **Sent monsters buffed** — they were dying too easily and sends felt weak. All sent units now have +20% health and +6% damage (wildlife unaffected), so waves are more substantial and a leak hurts.
+
+### Balance
+- Destructibility is the clean fix for the "unbreakable wall" the tower rework had: a fully-set Tarvek used to auto-win (100% sim). Tuned across the extremes (over-nerfed to 27%, now landed at **~64%** on small samples) — a strong defensive specialist whose fortress can be overwhelmed. ~40+ towers are built-and-destroyed across a typical match. 1v1 sims ~98% in the 15–45 min window (median ~20 min).
+
 ## [0.5.0] — 2026-06-13
 
 The "tower architect" patch: Tarvek reworked into a true tower-builder, plus an ability-visual fix.

@@ -82,7 +82,8 @@ and a slow pylon; the ultimate raises a single mighty **Citadel of Ages**. Cruci
 scale with **his** items and War-Council training — buy spell power and attack damage and *your
 towers* hit harder (his own body stays weak). Towers cost gold as well as mana, so a fortress
 competes with your war chest. Mind your **anti-air**: ground towers can't touch flyers — only the
-Tempest Coil and Citadel answer the skies.
+Tempest Coil and Citadel answer the skies. **Towers are destructible** — enemy monsters smash them
+as they march past, so you're always rebuilding and a heavy wave can break your wall.
 
 ## Things to do between waves
 

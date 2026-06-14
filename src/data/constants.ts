@@ -97,13 +97,15 @@ export const C = {
   DT: 1 / 60,
   UNIT_ENGAGE_SLOW: 0.45, // units move at this fraction while fighting the hero
   UNIT_ATK_PERIOD: 1.0,
+  UNIT_HP_MULT: 1.2, // sent monsters are beefier than they used to be — sends should matter
+  UNIT_DMG_MULT: 1.06,
 
   // towers / mazing
   FLOW_CELL: 30, // flow-field grid resolution (px)
   TOWER_CAP: 8, // max towers standing (ult Citadel exempt) — keep the wall breakable under late pressure
   // towers scale with the OWNER's offence, not the hero's body:
-  TOWER_SP_SCALE: 0.22, // tower dmg += owner spell power × this
-  TOWER_DMG_SCALE: 0.18, // tower dmg += owner bonus attack dmg (items+training) × this
+  TOWER_SP_SCALE: 0.26, // tower dmg += owner spell power × this
+  TOWER_DMG_SCALE: 0.21, // tower dmg += owner bonus attack dmg (items+training) × this
   TOWER_RANGE_PER_LVL: 1.2, // tower range grows a little as the builder levels
   TOWER_BOUNTY: 0.5, // towers pay half bounty — strong defence shouldn't also be free income
 

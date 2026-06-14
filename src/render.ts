@@ -1492,6 +1492,12 @@ export class Renderer {
               this.ring(e.pos, '#9acd32', 3.4);
               this.burst(e.pos, 8, '#9acd32', 'dot', 2);
               break;
+            case 'towerfall':
+              this.burst(e.pos, 18, '#9aa7b8', 'smoke', 2.6);
+              this.burst(e.pos, 12, e.theme.c1, 'ember', 2.4);
+              this.ring(e.pos, e.theme.c1, 3);
+              this.shakeIt(3);
+              break;
             case 'explode': case 'burst': case 'collapse':
               this.burst(e.pos, Math.min(26, 8 + e.r / 10), th.c1, e.kind === 'collapse' ? 'star' : 'ember', 3);
               this.ring(e.pos, th.c1, 3);
@@ -2027,6 +2033,11 @@ export class Renderer {
       }
       if (recentFire && tw.kind !== 'citadel' && tw.kind !== 'ballista' && tw.kind !== 'splinter') {
         glowCircle(ctx, 0, -tw.r * 0.65, 13, '#ffffff', 0.5);
+      }
+      // health bar when the wall is being torn down
+      if (tw.hp < tw.maxHp) {
+        const w = tw.r * 1.4;
+        this.bar(ctx, -w / 2, -tw.r * 0.95 - 6, w, 3.2, tw.hp / tw.maxHp, '#7df3a0');
       }
       ctx.restore();
     }
