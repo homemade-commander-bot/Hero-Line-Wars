@@ -33,7 +33,9 @@ npm run sim      # headless AI-vs-AI balance harness (see below)
    return more income per gold**, so teching up is the economic play — but they cost more upfront and
    a single leaked Stone Golem pays the defender 180g.
 2. **Defend your lane** — your hero fights everything the enemy sends. Kills pay bounty gold and XP.
-   Click anywhere to move (WC3 style); abilities aim at your cursor.
+   Click anywhere to move (WC3 style); abilities aim at your cursor. Monsters **break off the march to
+   attack you when you get close** — stand your ground to body-block a wave, or **kite**: peck and pull
+   with a ranged hero, leading the horde in circles while it never reaches your gate.
 3. **Spend gold** on:
    - **The Forge** — twelve honest items, and ten *forged secrets* (see riddles below).
      Right-click an item to **sell** it (60% back; freshly-bought basics refund in full).

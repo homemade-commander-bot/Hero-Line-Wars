@@ -132,7 +132,8 @@ export const C = {
 
   // engine
   DT: 1 / 60,
-  UNIT_ENGAGE_SLOW: 0.45, // units move at this fraction while fighting the hero
+  UNIT_ENGAGE_SLOW: 0.45, // units move at this fraction while fighting a summon/blocker
+  UNIT_AGGRO_R: 120, // a champion this close pulls a unit off the march to fight it (kiting)
   UNIT_ATK_PERIOD: 1.0,
   UNIT_HP_MULT: 1.2, // sent monsters are beefier than they used to be — sends should matter
   UNIT_DMG_MULT: 1.06,

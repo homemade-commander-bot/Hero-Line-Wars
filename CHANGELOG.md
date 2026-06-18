@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.10.0] — 2026-06-18
+
+**Champions reforged** — every hero hand-painted from the ground up, plus a real kiting mechanic.
+
+### Changed
+- **All 11 champions redrawn from scratch.** The old generic "weapon + recolor" humanoid is gone. Each hero now has a bespoke, hand-painted sprite with a distinct silhouette, layered armor or robes, flowing cloth, glowing arcana, and signature features — built to look powerful and unmistakably medieval-fantasy:
+  - **Ser Baldric** — crested great-helm with a plume, heraldic tabard-cloak, a gold-cross kite shield and a gleaming longsword. **Gorvana** — scaled half-dragon hide with swept horns, a sweeping wing, a spaded tail, molten skin-cracks and twin axes. **Thrainn** — rune-etched plate with a glowing forge-heart, horned helm and braided beard, hefting a rune-banded maul. **Joruun** — a storm-giant's huge bare frame, crackling tattoos, a crown of static and lightning-wreathed fists.
+  - **Tarvek** — a siege-engineer in a work-apron and brass goggles with a tool-belt, a floating blueprint-rune and a builder's maul. **Sylri** — a deep-hooded moon-ranger drawing a glowing longbow, quiver of moon-arrows on her back. **Vyrel** — a galewalker trailing a wind-scarf with twin curved blades and wind-streaks. **Korrigan** — the rat-king in a ragged cowl with a crown of teeth, twin gutter-knives and a loyal rat at his heel.
+  - **Maelis** — a hovering void-sage with a tilted void-halo, a star-flecked robe and an orb of un-space. **Morrigan** — a verdant witch with an antler crown, vines and blossoms creeping up her robe, a living staff in bloom. **Seraphine** — a radiant cantor with a halo, wings of light, a gold stole and a swinging censer.
+- **The hero-select screen is now a true gallery** — the cards and detail panel render the actual in-game champion sprite (full-length), not a simplified bust.
+
+### Added
+- **Kiting.** Sent monsters now **break off the march to fight a champion in close proximity** (within ~120 units): they stand and trade blows if you're in reach, or give chase if you back off — so a hero can body-block a wave and kite it away from the gate. Ranged heroes can pull, peck and reposition; melee heroes can hold the line. Harpies still skirmish on the move. (Aggro radius tuned so the lanes still flow and big waves still leak.)
+
+### Balance
+- Sim with kiting enabled: **0 timeouts** across 50 (1v1) + 16 (3v3) + 16 (warlord) matches. 1v1 median ~20.2 min (90% in the 15–45 window), 3v3 median ~24.2 min (100%), warlord median ~20.6 min (81%). Better defensive play kept matches comfortably in window.
+
 ## [0.9.0] — 2026-06-18
 
 **The Siege** — a neutral world-boss that hunts the strongest keep.

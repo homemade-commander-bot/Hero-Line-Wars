@@ -1712,6 +1712,7 @@ function updateUnits(g: GameState, dt: number) {
 
     if (u.state === 'march') {
       let engaged = false;
+      let hold = false; // stop dead to trade blows with a champion
       let tauntTarget: SummonState | null = null;
       for (const s of g.summons) {
         if (s.owner !== u.lane) continue;
@@ -1745,13 +1746,34 @@ function updateUnits(g: GameState, dt: number) {
             u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
             if (!blinded) dmgSummon(g, blockTarget, dmgOut, u.owner);
           }
-        } else if (hv && !disarmed && inAtkRange(hv.pos, def.special === 'harass' ? 0 : 14)) {
-          engaged = def.special !== 'harass';
-          if (t >= u.attackReadyAt) {
-            u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
-            if (!blinded) {
-              dmgHero(g, hv, dmgOut, 'phys', u);
-              if (def.special === 'harass') emit(g, { t: 'impact', pos: { ...hv.pos }, r: 22, theme: { c1: '#b58ad1', c2: '#5d3a70' }, kind: 'claw' });
+        } else if (hv) {
+          const harass = def.special === 'harass';
+          if (harass) {
+            // harpies fight on the move — shoot at range, never break the march
+            if (!disarmed && inAtkRange(hv.pos, 0) && t >= u.attackReadyAt) {
+              u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
+              if (!blinded) {
+                dmgHero(g, hv, dmgOut, 'phys', u);
+                emit(g, { t: 'impact', pos: { ...hv.pos }, r: 22, theme: { c1: '#b58ad1', c2: '#5d3a70' }, kind: 'claw' });
+              }
+            }
+          } else if (dist(hv.pos, u.pos) <= Math.max(C.UNIT_AGGRO_R, def.range + 14)) {
+            // a champion in close proximity pulls the unit off the march to fight
+            // it — stand and trade if in reach, else give chase. This is what lets
+            // a hero body-block a wave and kite it away from the castle.
+            engaged = true;
+            if (inAtkRange(hv.pos, 14)) {
+              hold = true;
+              if (!disarmed && t >= u.attackReadyAt) {
+                u.attackReadyAt = t + C.UNIT_ATK_PERIOD;
+                if (!blinded) dmgHero(g, hv, dmgOut, 'phys', u);
+              }
+            } else {
+              const dx = hv.pos.x - u.pos.x, dy = hv.pos.y - u.pos.y;
+              const l0 = Math.hypot(dx, dy) || 1;
+              u.pos.x += (dx / l0) * speed * dt;
+              u.pos.y += (dy / l0) * speed * dt;
+              continue;
             }
           }
         }
@@ -1774,7 +1796,7 @@ function updateUnits(g: GameState, dt: number) {
         }
       }
 
-      const moveMult = engaged ? C.UNIT_ENGAGE_SLOW : 1;
+      const moveMult = hold ? 0 : engaged ? C.UNIT_ENGAGE_SLOW : 1;
       const stepLen = speed * moveMult * dt;
       // towers don't wall the lane — units march on and just slide around them
       let mx = 0, my = 1;

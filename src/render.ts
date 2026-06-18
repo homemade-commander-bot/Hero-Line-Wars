@@ -474,183 +474,379 @@ export function paintUnit(ctx: Ctx, defId: string, t: number, scale = 1, walking
 
 // ========================================================== hero sprites ===
 
-function paintWeapon(ctx: Ctx, weapon: string, p: { glow: string; main: string; trim: string }, t: number, lunge: number) {
-  const wx = 9 + lunge * 8;
-  switch (weapon) {
-    case 'sword': {
-      ctx.save();
-      ctx.translate(wx, -3);
-      ctx.rotate(-0.55 + lunge * 0.7);
-      limb(ctx, 0, 5, 0, -2, 2.6, '#6a5a3a'); // grip
-      limb(ctx, -4.4, -1, 4.4, -1, 2.2, p.trim); // crossguard
-      limb(ctx, 0, -1, 0, -17, 3, '#cfd8e8'); // blade
-      glint(ctx, 0.8, -9, 9, -1.45);
-      ctx.restore();
-      // kite shield
-      plate(ctx, [[-15, -9], [-8, -9], [-7, -1], [-11.4, 5], [-16, -1]], p.main);
-      ctx.fillStyle = p.trim; circle(ctx, -11.5, -4, 2); ctx.fill();
-      break;
-    }
-    case 'axes': {
-      for (const s of [1, -0.5]) {
-        ctx.save();
-        ctx.translate(wx * s, -3);
-        ctx.rotate((-0.7 + lunge) * s);
-        limb(ctx, 0, 7, 0, -10, 2.4, '#6a5a3a');
-        plate(ctx, [[0, -10], [7, -14], [8, -7], [0, -6]], '#cfd8e8');
-        glint(ctx, 4.4, -10.4, 5, -0.5);
-        ctx.restore();
-      }
-      break;
-    }
-    case 'bow': {
-      ctx.save();
-      ctx.translate(wx, -5);
-      ctx.strokeStyle = '#8a6a3a'; ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.arc(0, 0, 10, -Math.PI / 2.2, Math.PI / 2.2); ctx.stroke();
-      ctx.strokeStyle = '#e8e4d8'; ctx.lineWidth = 1;
-      const ax = Math.cos(Math.PI / 2.2) * 10, ay = Math.sin(Math.PI / 2.2) * 10;
-      ctx.beginPath(); ctx.moveTo(ax, -ay); ctx.lineTo(-2 - lunge * 4, 0); ctx.lineTo(ax, ay); ctx.stroke();
-      limb(ctx, -2 - lunge * 4, 0, 8, 0, 1.4, p.glow); // nocked arrow
-      ctx.restore();
-      break;
-    }
-    case 'blades': {
-      for (const s of [1, -0.45]) {
-        ctx.save();
-        ctx.translate(10 * s + lunge * 7, -2);
-        ctx.rotate((0.5 + lunge * 0.9) * s);
-        limb(ctx, 0, 3, 1.4 * s, -3, 2, '#6a5a3a');
-        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 4;
-        ctx.beginPath(); ctx.moveTo(0, -3); ctx.quadraticCurveTo(6 * s, -7, 2 * s, -15); ctx.stroke();
-        ctx.strokeStyle = '#cfd8e8'; ctx.lineWidth = 2.2;
-        ctx.beginPath(); ctx.moveTo(0, -3); ctx.quadraticCurveTo(6 * s, -7, 2 * s, -15); ctx.stroke();
-        ctx.restore();
-      }
-      break;
-    }
-    case 'orb': {
-      const oy = -7 + Math.sin(t * 3) * 2.4;
-      glowCircle(ctx, wx + 1, oy, 9, p.glow, 0.9);
-      blob(ctx, wx + 1, oy, 3, 3, sh(p.glow, -0.1));
-      break;
-    }
-    case 'staff': {
-      limb(ctx, wx, 13, wx, -18, 2.6, '#5a4a30');
-      // living bloom
-      const bl = 3.4 + Math.sin(t * 5) * 0.8;
-      glowCircle(ctx, wx, -19.4, bl * 2.4, p.glow, 0.8);
-      for (let i = 0; i < 5; i++) {
-        const a2 = t * 2 + (i * Math.PI * 2) / 5;
-        blob(ctx, wx + Math.cos(a2) * bl, -19.4 + Math.sin(a2) * bl, 1.6, 2.4, p.trim, a2);
-      }
-      break;
-    }
-    case 'hammer': {
-      ctx.save();
-      ctx.translate(wx, -2);
-      ctx.rotate(-0.5 + lunge * 0.9);
-      limb(ctx, 0, 8, 0, -12, 2.8, '#6a5a3a');
-      plate(ctx, [[-7, -18], [7, -18], [8.4, -9], [-8.4, -9]], '#9aa7b8'); // great head
-      ctx.fillStyle = p.glow; ctx.globalAlpha = 0.9;
-      ctx.fillRect(-4, -15.4, 8, 2); // glowing rune band
-      ctx.globalAlpha = 1;
-      glint(ctx, 4, -17, 5, 0);
-      ctx.restore();
-      break;
-    }
-    case 'censer': {
-      // swinging thurible on a chain
-      const sw = Math.sin(t * 3.4) * 0.5 + lunge;
-      ctx.save();
-      ctx.translate(wx - 2, -8);
-      ctx.rotate(sw * 0.5);
-      ctx.strokeStyle = '#c9a84a'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 11); ctx.stroke();
-      blob(ctx, 0, 14, 4, 4.6, '#c9a84a');
-      ctx.fillStyle = OUTLINE;
-      for (const hy of [12.4, 15.4]) ctx.fillRect(-3, hy, 6, 1);
-      glowCircle(ctx, 0, 14, 8, p.glow, 0.55);
-      ctx.restore();
-      break;
-    }
-    case 'fists': {
-      for (const s of [1, -0.6]) {
-        blob(ctx, (11 + lunge * 7) * s, -1, 4.6, 5, '#5a6a8a');
-        glowCircle(ctx, (11 + lunge * 7) * s, -1, 7, p.glow, 0.35 + lunge * 0.4);
-      }
-      break;
-    }
+// ============================================================ champions ====
+// Every hero is hand-painted, head to heel, by a bespoke routine: layered
+// armor or robes, flowing cloth, glowing arcana, a signature silhouette.
+// Drawn facing right; the caller mirrors for facing and adds rings/bars/glows.
+
+type Pal = { skin: string; main: string; trim: string; glow: string; hair: string };
+type HeroPainter = (ctx: Ctx, p: Pal, t: number, l: number, G: { ph: number; leg: number; arm: number; bob: number }, h: HeroState) => void;
+
+/** shared face: skin, swept hair-cap, eyes (glowing for the arcane). */
+function heroFace(ctx: Ctx, x: number, y: number, r: number, p: Pal, eyeGlow?: string) {
+  blob(ctx, x, y, r, r * 0.94, p.skin);
+  ctx.fillStyle = p.hair;
+  ctx.beginPath(); ctx.arc(x, y - 1.2, r, Math.PI * 0.96, Math.PI * 2.04); ctx.fill();
+  if (eyeGlow) {
+    glowCircle(ctx, x - 1.7, y - 0.1, 2.2, eyeGlow, 0.8);
+    glowCircle(ctx, x + 1.9, y - 0.1, 2.2, eyeGlow, 0.8);
+    ctx.fillStyle = eyeGlow;
+  } else ctx.fillStyle = '#14101f';
+  ctx.fillRect(x + 0.9, y - 0.6, 1.5, 1.7); ctx.fillRect(x - 2.6, y - 0.6, 1.5, 1.7);
+}
+
+// ---- Ser Baldric — the golden knight: heavy plate, kite shield, crested helm
+function paintBaldric(ctx: Ctx, p: Pal, t: number, l: number, _G: { leg: number }, _h: HeroState) {
+  const w = Math.sin(t * 3) * 2.2;
+  plate(ctx, [[-2, -9], [-12 - w, 3], [-15 - w, 18], [-8 - w, 17], [-6, 8], [-1, 9]], sh(p.trim, -0.4)); // heraldic cloak
+  plate(ctx, [[-2, -9], [-8 - w, 2], [-4, 4]], sh(p.trim, -0.16));
+  limb(ctx, -3.4, 7, -4.4, 17, 4, sh(p.main, -0.32));
+  limb(ctx, 3.4, 7, 4.4, 17, 4, sh(p.main, -0.32));
+  plate(ctx, [[-6.6, 14], [-2.2, 14], [-3, 21], [-7, 21]], sh(p.main, -0.06)); // greaves
+  plate(ctx, [[6.6, 14], [2.2, 14], [3, 21], [7, 21]], sh(p.main, -0.06));
+  blob(ctx, -5, 20.6, 3.4, 2, sh(p.main, -0.45)); blob(ctx, 5, 20.6, 3.4, 2, sh(p.main, -0.45));
+  for (const fx of [-5, -1.7, 1.7, 5]) plate(ctx, [[fx - 1.9, 3.5], [fx + 1.9, 3.5], [fx + 1.4, 11], [fx - 1.4, 11]], sh(p.main, -0.14)); // fauld
+  plate(ctx, [[-8.5, -10], [8.5, -10], [7, 6], [-7, 6]], p.main); // cuirass
+  plate(ctx, [[-8.5, -10], [0, -6.5], [8.5, -10], [0, 1.5]], sh(p.main, 0.18));
+  plate(ctx, [[-2.6, -9.5], [2.6, -9.5], [2, 8], [-2, 8]], p.trim); // tabard band
+  ctx.fillStyle = sh(p.trim, 0.35); circle(ctx, 0, -3, 1.7); ctx.fill();
+  glint(ctx, -3.6, -7, 5, -0.5, 0.4);
+  blob(ctx, -8.8, -9, 5.2, 4.2, sh(p.main, 0.16)); blob(ctx, 8.8, -9, 5.2, 4.2, sh(p.main, 0.16)); // pauldrons
+  plate(ctx, [[-13, -10.5], [-5, -11.5], [-5.5, -7.5], [-12, -6.5]], p.trim);
+  plate(ctx, [[13, -10.5], [5, -11.5], [5.5, -7.5], [12, -6.5]], p.trim);
+  blob(ctx, 0, -13.5, 5.2, 5, p.skin);
+  plate(ctx, [[-5.6, -19], [5.6, -19], [6, -10.4], [-6, -10.4]], sh(p.main, 0.05)); // great-helm
+  plate(ctx, [[-5.6, -16.6], [5.6, -16.6], [5.6, -14.6], [-5.6, -14.6]], p.trim);
+  ctx.fillStyle = '#0c0a14'; ctx.fillRect(-3.6, -14.6, 7.4, 1.7);
+  glowCircle(ctx, 0, -13.7, 3.6, p.glow, 0.45);
+  const pl = Math.sin(t * 4) * 1.4;
+  plate(ctx, [[-1, -19], [0.4, -28 + pl], [3, -26 + pl], [2.6, -18.6]], p.trim); // plume
+  plate(ctx, [[0.4, -28 + pl], [3, -26 + pl], [4.6, -28 + pl], [2.2, -30 + pl]], sh(p.trim, 0.25));
+  ctx.save(); ctx.translate(9 + l * 8, -3); ctx.rotate(-0.5 + l * 0.85); // sword
+  limb(ctx, 0, 6, 0, -2, 2.6, sh(p.main, -0.15));
+  limb(ctx, -4.8, -1.6, 4.8, -1.6, 2.4, p.trim);
+  limb(ctx, 0, -1.6, 0, -21, 3.2, '#e2e8f2');
+  limb(ctx, 0, -1.6, 0, -21, 1.1, '#ffffff');
+  glowCircle(ctx, 0, -3, 2.6, p.glow, 0.5);
+  glint(ctx, 0.8, -12, 12, -1.5);
+  ctx.restore();
+  plate(ctx, [[-17, -10], [-7, -11], [-6, -1], [-11.5, 9], [-18, -1]], p.main); // kite shield
+  plate(ctx, [[-17, -10], [-7, -11], [-11.8, -3.5]], sh(p.main, 0.2));
+  ctx.strokeStyle = p.trim; ctx.lineWidth = 1.3;
+  ctx.beginPath(); ctx.moveTo(-11.8, -10.5); ctx.lineTo(-11.8, 6); ctx.moveTo(-17.5, -1.5); ctx.lineTo(-6.5, -1.5); ctx.stroke();
+  ctx.fillStyle = sh(p.trim, 0.25); circle(ctx, -11.8, -3, 1.9); ctx.fill();
+}
+
+// ---- Gorvana — half-dragon: scaled hide, wing, tail, horns, twin axes
+function paintGorvana(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  const fl = Math.sin(t * 3.5) * 2;
+  plate(ctx, [[-3, -9], [-16, -18 - fl], [-22, -8 - fl], [-15, -2], [-6, 0]], sh(p.main, -0.05)); // wing membrane
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 1.4;
+  for (const e of [[-16, -18 - fl], [-22, -8 - fl], [-15, -2]]) { ctx.beginPath(); ctx.moveTo(-3, -9); ctx.lineTo(e[0], e[1]); ctx.stroke(); }
+  const tw = Math.sin(t * 5) * 5;
+  limb(ctx, -5, 9, -16, 6 + tw, 3.2, p.skin); limb(ctx, -16, 6 + tw, -23, 3 + tw, 2.2, p.skin); // tail
+  plate(ctx, [[-23, 3 + tw], [-28, 0 + tw], [-24, 7 + tw]], p.trim);
+  limb(ctx, -3.6, 7, -4.6, 17, 4, sh(p.skin, -0.18)); limb(ctx, 3.6, 7, 4.6, 17, 4, sh(p.skin, -0.18));
+  plate(ctx, [[-6.6, 14], [-2.4, 14], [-3.2, 20.6], [-7, 20.6]], sh(p.main, -0.05));
+  plate(ctx, [[6.6, 14], [2.4, 14], [3.2, 20.6], [7, 20.6]], sh(p.main, -0.05));
+  plate(ctx, [[-6, 4], [6, 4], [5, 11], [-5, 11]], sh(p.main, -0.1)); // loin guard
+  plate(ctx, [[-6, 4], [6, 4], [5.6, 6], [-5.6, 6]], p.trim);
+  plate(ctx, [[-8, -9], [8, -9], [7, 6], [-7, 6]], p.skin); // scaled chest
+  plate(ctx, [[-8, -9], [0, -6], [8, -9], [0, 1]], sh(p.skin, 0.16));
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.55 + Math.sin(t * 6) * 0.25; // molten cracks
+  ctx.beginPath(); ctx.moveTo(-5, -6); ctx.lineTo(-2, -1); ctx.lineTo(-4, 4); ctx.moveTo(5, -5); ctx.lineTo(2, 0); ctx.lineTo(4, 5); ctx.stroke();
+  ctx.globalAlpha = 1;
+  blob(ctx, -8.6, -8.5, 4.6, 3.8, sh(p.main, 0.12)); blob(ctx, 8.6, -8.5, 4.6, 3.8, sh(p.main, 0.12));
+  plate(ctx, [[-12, -9], [-7, -11.5], [-7, -7]], p.trim); plate(ctx, [[12, -9], [7, -11.5], [7, -7]], p.trim); // shoulder spikes
+  heroFace(ctx, 0, -13.5, 5.2, p, p.glow);
+  for (const s of [-1, 1]) { // horns
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(4 * s, -16); ctx.quadraticCurveTo(10 * s, -20, 8.4 * s, -26); ctx.stroke();
+    ctx.strokeStyle = sh(p.trim, 0.1); ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(4 * s, -16); ctx.quadraticCurveTo(10 * s, -20, 8.4 * s, -26); ctx.stroke();
+  }
+  for (const s of [1, -0.55]) { // twin axes
+    ctx.save(); ctx.translate((9 + l * 8) * s, -3); ctx.rotate((-0.7 + l * 0.9) * s);
+    limb(ctx, 0, 8, 0, -11, 2.4, '#3a2a22');
+    plate(ctx, [[0, -11], [8, -15], [9, -7], [0, -6]], '#cfd8e8');
+    plate(ctx, [[0, -11], [8, -15], [4.5, -9]], sh('#cfd8e8', 0.2));
+    glowCircle(ctx, 4, -10, 3, p.glow, 0.4); glint(ctx, 4.6, -11, 5, -0.5);
+    ctx.restore();
   }
 }
 
-/** Hero-specific headgear painted over the head. */
-function paintHeadgear(ctx: Ctx, heroId: string, p: { main: string; trim: string; glow: string; hair: string }, t: number) {
-  switch (heroId) {
-    case 'baldric': // full helm with plume
-      plate(ctx, [[-5.4, -16], [5.4, -16], [5.8, -10], [-5.8, -10]], sh(p.main, 0.15));
-      ctx.fillStyle = '#14101f'; ctx.fillRect(-4, -14.4, 8, 2.2); // visor slit
-      plate(ctx, [[-1.4, -16], [0, -23], [3.4, -21], [1.4, -15.4]], p.trim); // plume
-      break;
-    case 'gorvana': // swept horns
-      for (const s of [-1, 1]) {
-        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3.4;
-        ctx.beginPath(); ctx.moveTo(4 * s, -15); ctx.quadraticCurveTo(9 * s, -20, 7.4 * s, -25); ctx.stroke();
-        ctx.strokeStyle = '#d8c8a8'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.moveTo(4 * s, -15); ctx.quadraticCurveTo(9 * s, -20, 7.4 * s, -25); ctx.stroke();
-      }
-      break;
-    case 'thrainn': // hood + magnificent beard
-      plate(ctx, [[-5.4, -15], [0, -19.4], [5.4, -15], [4.4, -11], [-4.4, -11]], p.main);
-      plate(ctx, [[-4.4, -10], [4.4, -10], [2.4, -1], [0, 1], [-2.4, -1]], p.hair); // the beard
-      ctx.strokeStyle = sh(p.hair, -0.25); ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(-2, -7); ctx.lineTo(-1.4, -2); ctx.moveTo(2, -7); ctx.lineTo(1.4, -2); ctx.stroke();
-      break;
-    case 'joruun': // crown of static
-      for (let i = 0; i < 4; i++) {
-        const a2 = t * 6 + (i * Math.PI) / 2;
-        const sx = Math.cos(a2) * 6.4, sy = -17 + Math.sin(a2) * 2;
-        ctx.strokeStyle = p.glow; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.85;
-        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 2, sy - 3.4); ctx.lineTo(sx + 3.4, sy - 1.4); ctx.stroke();
-        ctx.globalAlpha = 1;
-      }
-      break;
-    case 'sylri': // deep hood, silver fringe
-      plate(ctx, [[-5.8, -13], [0, -19], [5.8, -13], [4.4, -9.4], [-4.4, -9.4]], p.main);
-      ctx.fillStyle = p.hair; ctx.fillRect(-4, -11.4, 8, 1.4);
-      break;
-    case 'vyrel': // wind-scarf
-      plate(ctx, [[-5.4, -14.4], [5.4, -14.4], [4.4, -11], [-4.4, -11]], p.trim);
-      const fl = Math.sin(t * 6) * 3;
-      plate(ctx, [[4, -13], [13, -15 - fl], [12, -11.4 - fl], [4.4, -11]], p.trim);
-      break;
-    case 'korrigan': // rat-eared hood
-      plate(ctx, [[-5.4, -13], [0, -17.4], [5.4, -13], [4.4, -9.4], [-4.4, -9.4]], p.main);
-      for (const s of [-1, 1]) plate(ctx, [[3.4 * s, -16], [6.4 * s, -22], [1 * s, -17]], p.main);
-      break;
-    case 'maelis': { // hovering void-halo
-      ctx.strokeStyle = p.glow; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.7;
-      ctx.beginPath(); ctx.ellipse(0, -19.4 + Math.sin(t * 2) * 1, 7, 2.2, 0, 0, Math.PI * 2); ctx.stroke();
-      ctx.globalAlpha = 1;
-      break;
-    }
-    case 'morrigan': // antler circlet
-      for (const s of [-1, 1]) {
-        ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(3.4 * s, -15.4); ctx.quadraticCurveTo(7 * s, -21, 5.4 * s, -24); ctx.stroke();
-        ctx.strokeStyle = '#7a5d3a'; ctx.lineWidth = 1.6;
-        ctx.beginPath(); ctx.moveTo(3.4 * s, -15.4); ctx.quadraticCurveTo(7 * s, -21, 5.4 * s, -24); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(5.8 * s, -20); ctx.lineTo(8 * s, -22); ctx.stroke();
-      }
-      break;
-    case 'seraphine': { // radiant halo
-      glowCircle(ctx, 0, -16, 11, p.glow, 0.5);
-      ctx.strokeStyle = p.trim; ctx.lineWidth = 1.6;
-      circle(ctx, 0, -16, 8.4); ctx.stroke();
-      break;
-    }
+// ---- Thrainn — runesmith: rune-etched plate, forge-heart, great beard, maul
+function paintThrainn(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  limb(ctx, -4, 8, -4.6, 17, 4.4, sh(p.main, -0.3)); limb(ctx, 4, 8, 4.6, 17, 4.4, sh(p.main, -0.3));
+  blob(ctx, -4.6, 19.6, 3.4, 2.2, sh(p.main, -0.5)); blob(ctx, 4.6, 19.6, 3.4, 2.2, sh(p.main, -0.5));
+  plate(ctx, [[-9, -8], [9, -8], [8, 8], [-8, 8]], p.main); // broad cuirass
+  plate(ctx, [[-9, -8], [0, -5], [9, -8], [0, 1.5]], sh(p.main, 0.14));
+  glowCircle(ctx, 0, -1, 5 + Math.sin(t * 4) * 1, p.glow, 0.5); // forge-heart
+  ctx.fillStyle = p.trim; ctx.globalAlpha = 0.85; ctx.fillRect(-3.5, -2.5, 7, 1.4); ctx.globalAlpha = 1;
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1; ctx.globalAlpha = 0.6;
+  ctx.beginPath(); ctx.moveTo(-6, -5); ctx.lineTo(-6, 4); ctx.moveTo(6, -5); ctx.lineTo(6, 4); ctx.stroke(); ctx.globalAlpha = 1;
+  plate(ctx, [[-8.5, 3.5], [8.5, 3.5], [8, 6], [-8, 6]], sh(p.trim, -0.1)); // belt
+  blob(ctx, -9.6, -8, 5.4, 4.2, sh(p.main, 0.16)); blob(ctx, 9.6, -8, 5.4, 4.2, sh(p.main, 0.16));
+  blob(ctx, 0, -13, 5.2, 5, p.skin);
+  plate(ctx, [[-5.4, -17], [5.4, -17], [5.6, -12.5], [-5.6, -12.5]], sh(p.main, 0.05)); // helm dome
+  plate(ctx, [[-5.4, -14.6], [5.4, -14.6], [5.4, -13], [-5.4, -13]], p.trim);
+  for (const s of [-1, 1]) plate(ctx, [[5 * s, -15], [9 * s, -16], [9 * s, -12.5], [5 * s, -12]], sh(p.trim, -0.05)); // side horns
+  ctx.fillStyle = p.glow; ctx.globalAlpha = 0.7; ctx.fillRect(-3, -12.6, 6, 1.2); ctx.globalAlpha = 1;
+  plate(ctx, [[-4.4, -11], [4.4, -11], [3, -1], [0, 1.6], [-3, -1]], p.hair); // beard
+  plate(ctx, [[-4.4, -11], [0, -10], [-1.6, -2]], sh(p.hair, 0.12));
+  ctx.strokeStyle = sh(p.hair, -0.3); ctx.lineWidth = 0.9;
+  ctx.beginPath(); ctx.moveTo(-1.6, -8); ctx.lineTo(-1.2, -2); ctx.moveTo(1.6, -8); ctx.lineTo(1.2, -2); ctx.stroke();
+  blob(ctx, 0, 0.6, 1.4, 1.6, p.trim);
+  ctx.save(); ctx.translate(9 + l * 7, -2); ctx.rotate(-0.5 + l * 0.9); // rune-maul
+  limb(ctx, 0, 9, 0, -13, 3, '#4a3a26');
+  plate(ctx, [[-8, -20], [8, -20], [9.4, -10], [-9.4, -10]], '#8a96a6');
+  plate(ctx, [[-8, -20], [8, -20], [0, -15]], sh('#8a96a6', 0.18));
+  ctx.fillStyle = p.glow; ctx.globalAlpha = 0.95; ctx.fillRect(-4.5, -16.5, 9, 2.2); ctx.globalAlpha = 1;
+  glowCircle(ctx, 0, -15, 6, p.glow, 0.4); glint(ctx, 4, -18, 5, 0);
+  ctx.restore();
+}
+
+// ---- Joruun — storm giant: huge bare frame, storm tattoos, crackling fists
+function paintJoruun(ctx: Ctx, p: Pal, t: number, l: number, G: { leg: number }, _h: HeroState) {
+  limb(ctx, -5, 8, -6 + G.leg * 0.3, 18, 5.6, sh(p.skin, -0.2)); limb(ctx, 5, 8, 6 - G.leg * 0.3, 18, 5.6, sh(p.skin, -0.2));
+  plate(ctx, [[-9, 15], [-3, 15], [-4, 21.5], [-9.5, 21.5]], sh(p.main, -0.05));
+  plate(ctx, [[9, 15], [3, 15], [4, 21.5], [9.5, 21.5]], sh(p.main, -0.05));
+  plate(ctx, [[-9.5, 6], [9.5, 6], [8.5, 13], [-8.5, 13]], p.main); // storm kilt
+  plate(ctx, [[-9.5, 6], [9.5, 6], [9, 8.6], [-9, 8.6]], p.trim);
+  plate(ctx, [[-11, -10], [11, -10], [9, 8], [-9, 8]], p.skin); // huge chest
+  plate(ctx, [[-11, -10], [0, -6.5], [11, -10], [0, 2]], sh(p.skin, 0.14));
+  ctx.strokeStyle = sh(p.skin, -0.3); ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(7, -3); ctx.moveTo(0, -8); ctx.lineTo(0, 6); ctx.stroke();
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.5 + Math.sin(t * 7) * 0.3; // tattoos
+  ctx.beginPath(); ctx.moveTo(-7, -7); ctx.lineTo(-3, -1); ctx.lineTo(-6, 4); ctx.moveTo(7, -6); ctx.lineTo(3, 0); ctx.lineTo(6, 5); ctx.stroke();
+  ctx.globalAlpha = 1;
+  blob(ctx, -11.5, -9, 5.6, 4.6, sh(p.main, 0.18)); blob(ctx, 11.5, -9, 5.6, 4.6, sh(p.main, 0.18));
+  glowCircle(ctx, -11.5, -9, 5, p.glow, 0.25); glowCircle(ctx, 11.5, -9, 5, p.glow, 0.25);
+  heroFace(ctx, 0, -15.5, 6, p, p.glow);
+  for (let i = 0; i < 5; i++) { // crown of static
+    const a2 = t * 6 + (i * Math.PI * 2) / 5, sx = Math.cos(a2) * 7, sy = -19 + Math.sin(a2) * 2;
+    ctx.strokeStyle = p.glow; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.55 + Math.sin(t * 8 + i) * 0.35;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 1.6, sy - 3.4); ctx.lineTo(sx + 3, sy - 1); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  for (const s of [1, -0.6]) { // crackling fists
+    blob(ctx, (12 + l * 8) * s, -2, 5, 5.4, sh(p.skin, -0.05));
+    glowCircle(ctx, (12 + l * 8) * s, -2, 8, p.glow, 0.4 + l * 0.4);
+    ctx.strokeStyle = p.glow; ctx.lineWidth = 1; ctx.globalAlpha = 0.7;
+    const a3 = t * 12 + (s > 0 ? 0 : 2);
+    ctx.beginPath(); ctx.moveTo((12 + l * 8) * s, -6); ctx.lineTo((12 + l * 8) * s + Math.cos(a3) * 4, -6 + Math.sin(a3) * 4); ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 }
+
+// ---- Tarvek — siege engineer: work-apron, tool belt, goggles, floating plan
+function paintTarvek(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  limb(ctx, -3.4, 7, -4.4, 17, 3.8, sh(p.main, -0.3)); limb(ctx, 3.4, 7, 4.4, 17, 3.8, sh(p.main, -0.3));
+  blob(ctx, -4.4, 19, 3.2, 2, sh(p.main, -0.5)); blob(ctx, 4.4, 19, 3.2, 2, sh(p.main, -0.5));
+  plate(ctx, [[-7, -8], [7, -8], [6.2, 7], [-6.2, 7]], p.main);
+  plate(ctx, [[-5.5, -3], [5.5, -3], [5, 12], [-5, 12]], '#6e5a3a'); // leather apron
+  plate(ctx, [[-5.5, -3], [5.5, -3], [5.2, -1], [-5.2, -1]], sh('#6e5a3a', 0.18));
+  plate(ctx, [[-6.5, 2], [6.5, 2], [6, 4.4], [-6, 4.4]], sh(p.trim, -0.1)); // tool belt
+  for (const bx of [-4, 0, 4]) blob(ctx, bx, 5.4, 1.6, 2, sh('#5a4a30', -0.05));
+  blob(ctx, -8, -8, 4.6, 3.8, sh(p.main, 0.16)); blob(ctx, 8, -8, 3.6, 3, sh(p.main, 0.1));
+  const sy = -4 + Math.sin(t * 2.5) * 1.5; // floating schematic
+  ctx.save(); ctx.translate(-11, sy); ctx.globalAlpha = 0.55 + Math.sin(t * 3) * 0.15;
+  glowCircle(ctx, 0, 0, 5, p.glow, 0.4);
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1; ctx.strokeRect(-3, -3, 6, 6);
+  ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(3, 0); ctx.moveTo(0, -3); ctx.lineTo(0, 3); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.restore();
+  blob(ctx, 0, -13, 5.2, 5, p.skin);
+  plate(ctx, [[-5.6, -13.4], [0, -18.4], [5.6, -13.4], [4.4, -9.6], [-4.4, -9.6]], sh(p.main, 0.04)); // hood
+  ctx.strokeStyle = p.trim; ctx.lineWidth = 1.2; // goggles
+  circle(ctx, -2, -13, 1.8); ctx.stroke(); circle(ctx, 2, -13, 1.8); ctx.stroke();
+  glowCircle(ctx, -2, -13, 1.5, p.glow, 0.55); glowCircle(ctx, 2, -13, 1.5, p.glow, 0.55);
+  ctx.beginPath(); ctx.moveTo(-0.2, -13); ctx.lineTo(0.2, -13); ctx.stroke();
+  ctx.save(); ctx.translate(9 + l * 7, -2); ctx.rotate(-0.4 + l * 0.9); // builder's maul
+  limb(ctx, 0, 9, 0, -12, 2.8, '#4a3a26');
+  plate(ctx, [[-6, -18], [6, -18], [7, -10], [-7, -10]], '#7a6a52');
+  plate(ctx, [[-6, -18], [6, -18], [0, -14]], sh('#7a6a52', 0.2));
+  ctx.fillStyle = p.glow; ctx.globalAlpha = 0.85; ctx.fillRect(-3.5, -15, 7, 1.6); ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ---- Sylri — moon ranger: deep hood, cloak, quiver, glowing longbow
+function paintSylri(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  const w = Math.sin(t * 2.6) * 2.4;
+  plate(ctx, [[-2, -9], [-11 - w, 4], [-13 - w, 18], [-6 - w, 17], [-4, 7], [-1, 8]], sh(p.main, -0.2)); // cloak
+  plate(ctx, [[-2, -9], [-7 - w, 3], [-3, 5]], sh(p.main, 0.04));
+  limb(ctx, -3, 7, -3.6, 17, 3.2, sh(p.main, -0.3)); limb(ctx, 3, 7, 3.6, 17, 3.2, sh(p.main, -0.3));
+  blob(ctx, -3.6, 18.4, 2.8, 1.8, sh(p.main, -0.45)); blob(ctx, 3.6, 18.4, 2.8, 1.8, sh(p.main, -0.45));
+  plate(ctx, [[-6.5, -8], [6.5, -8], [6, 8], [-6, 8]], p.main);
+  plate(ctx, [[-6.5, -8], [0, -5.5], [6.5, -8], [0, 0.5]], sh(p.main, 0.14));
+  plate(ctx, [[-5, -2], [5, -2], [4.6, 0.4], [-4.6, 0.4]], p.trim);
+  ctx.fillStyle = p.glow; ctx.beginPath(); ctx.arc(0, -4, 2.2, 0.6, Math.PI * 2 - 0.6); ctx.fill(); // moon sigil
+  blob(ctx, -7, -7.5, 3.4, 3, sh(p.main, 0.1)); blob(ctx, 7, -7.5, 3.4, 3, sh(p.main, 0.1));
+  plate(ctx, [[-9, -10], [-5.5, -11], [-4.5, -1], [-8, 0]], '#4a3a52'); // quiver
+  for (const qx of [-8, -7, -6]) { limb(ctx, qx, -10, qx - 0.6, -15, 1, '#6a5a3a'); glowCircle(ctx, qx - 0.6, -15.5, 1.6, p.glow, 0.7); }
+  heroFace(ctx, 0, -13, 5, p, p.glow);
+  plate(ctx, [[-5.8, -12.8], [0, -19], [5.8, -12.8], [4.2, -9.6], [-4.2, -9.6]], p.main); // hood
+  plate(ctx, [[-5.8, -12.8], [0, -19], [0, -13.5]], sh(p.main, 0.1));
+  ctx.fillStyle = p.hair; ctx.fillRect(-3.6, -11.2, 7.2, 1.2);
+  ctx.save(); ctx.translate(10 + l * 4, -4); // longbow
+  ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3.2; ctx.beginPath(); ctx.arc(0, 0, 12, -Math.PI / 2.1, Math.PI / 2.1); ctx.stroke();
+  ctx.strokeStyle = p.trim; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(0, 0, 12, -Math.PI / 2.1, Math.PI / 2.1); ctx.stroke();
+  glowCircle(ctx, 0, 0, 6, p.glow, 0.2);
+  const ax = Math.cos(Math.PI / 2.1) * 12, ay = Math.sin(Math.PI / 2.1) * 12;
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(ax, -ay); ctx.lineTo(-3 - l * 5, 0); ctx.lineTo(ax, ay); ctx.stroke();
+  limb(ctx, -3 - l * 5, 0, 9, 0, 1.2, p.glow); glowCircle(ctx, 9, 0, 2, p.glow, 0.8);
+  ctx.restore();
+}
+
+// ---- Vyrel — galewalker: streaming scarf, wind streaks, twin curved blades
+function paintVyrel(ctx: Ctx, p: Pal, t: number, l: number, G: { leg: number }, _h: HeroState) {
+  const w = Math.sin(t * 5) * 4;
+  ctx.save(); ctx.globalAlpha = 0.9; // scarf
+  plate(ctx, [[-2, -7], [-12, -9 - w], [-20, -6 - w * 1.4], [-13, -3], [-3, -3]], p.trim);
+  plate(ctx, [[-13, -3], [-21, -2 - w], [-14, 1]], sh(p.trim, -0.1));
+  ctx.restore();
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1; ctx.globalAlpha = 0.4; // wind streaks
+  for (const yy of [-6, 0, 6]) { ctx.beginPath(); ctx.moveTo(-14, yy + w * 0.3); ctx.quadraticCurveTo(-20, yy - 2, -26, yy + w * 0.3); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  limb(ctx, -3, 7, -4.4 + G.leg * 0.5, 17, 3, sh(p.main, -0.3)); limb(ctx, 3, 7, 4.4 - G.leg * 0.5, 17, 3, sh(p.main, -0.3));
+  blob(ctx, -4.4, 18.2, 2.6, 1.8, sh(p.main, -0.45)); blob(ctx, 4.4, 18.2, 2.6, 1.8, sh(p.main, -0.45));
+  plate(ctx, [[-6, -8], [6, -8], [5.6, 7], [-5.6, 7]], p.main);
+  plate(ctx, [[-6, -8], [0, -5.5], [6, -8], [0, 0.5]], sh(p.main, 0.16));
+  plate(ctx, [[-5.5, -2.5], [5.5, -2.5], [5, -0.6], [-5, -0.6]], p.trim);
+  glowCircle(ctx, 0, -3.5, 3, p.glow, 0.3);
+  blob(ctx, -6.5, -7.5, 3.2, 2.8, sh(p.main, 0.12)); blob(ctx, 6.5, -7.5, 3.2, 2.8, sh(p.main, 0.12));
+  heroFace(ctx, 0, -13, 5, p, p.glow);
+  plate(ctx, [[-5.4, -14.4], [5.4, -14.4], [4.6, -11], [-4.6, -11]], p.trim); // headband
+  const fl = Math.sin(t * 6) * 3;
+  plate(ctx, [[4, -13], [13, -15 - fl], [12, -11.4 - fl], [4.4, -11]], p.trim);
+  for (const s of [1, -0.5]) { // twin blades
+    ctx.save(); ctx.translate((10 * s) + l * 8, -2); ctx.rotate((0.5 + l * 0.9) * s);
+    limb(ctx, 0, 3, 1.4 * s, -3, 2, '#3a3a30');
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, -3); ctx.quadraticCurveTo(7 * s, -8, 2 * s, -17); ctx.stroke();
+    ctx.strokeStyle = '#dffcf7'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(0, -3); ctx.quadraticCurveTo(7 * s, -8, 2 * s, -17); ctx.stroke();
+    ctx.strokeStyle = p.glow; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.moveTo(0, -3); ctx.quadraticCurveTo(7 * s, -8, 2 * s, -17); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+// ---- Korrigan — rat king: ragged cloak, rat-ear hood, crown of teeth, knives
+function paintKorrigan(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  const w = Math.sin(t * 3) * 2;
+  plate(ctx, [[-2, -8], [-11 - w, 3], [-13 - w, 16], [-9 - w, 13], [-7 - w, 17], [-4, 9], [-1, 9]], sh(p.main, -0.25)); // cloak
+  const rx = -9 + Math.sin(t * 4) * 1.5; // loyal rat
+  blob(ctx, rx, 19, 3, 1.8, '#5a4a3a'); blob(ctx, rx + 3, 18, 1.6, 1.4, '#5a4a3a');
+  ctx.fillStyle = p.glow; circle(ctx, rx + 3.6, 17.8, 0.6); ctx.fill();
+  limb(ctx, rx - 3, 19, rx - 7, 20 + Math.sin(t * 8), 0.8, sh('#5a4a3a', -0.2));
+  limb(ctx, -3, 8, -4, 17, 3.2, sh(p.main, -0.32)); limb(ctx, 3, 8, 4, 17, 3.2, sh(p.main, -0.32));
+  blob(ctx, -4, 18.4, 2.8, 1.8, sh(p.main, -0.5)); blob(ctx, 4, 18.4, 2.8, 1.8, sh(p.main, -0.5));
+  plate(ctx, [[-6.5, -7], [6.5, -7], [6, 8], [-6, 8]], p.main);
+  plate(ctx, [[-6.5, -7], [0, -4.5], [6.5, -7], [0, 1]], sh(p.main, 0.14));
+  ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(6, 4); ctx.stroke(); // bandolier
+  for (const k of [0.25, 0.5, 0.75]) { const kx = -6 + 12 * k, ky = -6 + 10 * k; limb(ctx, kx, ky, kx + 1.6, ky - 2.4, 1, '#cfd8e8'); }
+  blob(ctx, -6.5, -6.5, 3, 2.6, sh(p.main, 0.1)); blob(ctx, 6.5, -6.5, 3, 2.6, sh(p.main, 0.1));
+  heroFace(ctx, 0, -12.5, 4.8, p, p.glow);
+  plate(ctx, [[-5.4, -12], [0, -16.4], [5.4, -12], [4.2, -9], [-4.2, -9]], p.main); // hood
+  for (const s of [-1, 1]) plate(ctx, [[3.4 * s, -15], [6.4 * s, -21], [1 * s, -16]], p.main); // rat ears
+  for (let i = -2; i <= 2; i++) plate(ctx, [[i * 1.8 - 0.7, -15.5], [i * 1.8, -18], [i * 1.8 + 0.7, -15.5]], '#e8e4d8'); // crown of teeth
+  for (const s of [1, -0.5]) { // gutter knives
+    ctx.save(); ctx.translate((9 * s) + l * 8, -1); ctx.rotate((0.6 + l * 0.8) * s);
+    limb(ctx, 0, 3, 0.8 * s, -2, 1.8, '#3a2a1a');
+    plate(ctx, [[0, -2], [3 * s, -4], [1.4 * s, -12], [0, -10]], '#b8c2cc');
+    ctx.strokeStyle = p.glow; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.moveTo(0.6 * s, -3); ctx.lineTo(1 * s, -11); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
+// ---- Maelis — void sage: hovering star-robe, void-halo, orb of un-space
+function paintMaelis(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  const wisp = Math.sin(t * 3) * 3;
+  plate(ctx, [[-7, 2], [7, 2], [5 + wisp, 16], [0, 22], [-5 + wisp, 16]], p.main); // hovering hem
+  plate(ctx, [[-7, 2], [0, 4], [7, 2], [0, 14]], sh(p.main, -0.3));
+  glowCircle(ctx, 0, 16, 13, p.glow, 0.4);
+  ctx.fillStyle = p.trim; ctx.globalAlpha = 0.8;
+  for (const sp of [[-3, 8], [2, 11], [-1, 14], [4, 6]]) { circle(ctx, sp[0] + wisp * 0.3, sp[1], 0.7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+  plate(ctx, [[-7, -8], [7, -8], [6.4, 4], [-6.4, 4]], p.main); // robe torso
+  plate(ctx, [[-7, -8], [0, -5], [7, -8], [0, 1]], sh(p.main, 0.16));
+  blob(ctx, -7, -3, 3, 5, sh(p.main, 0.06)); blob(ctx, 7, -3, 3, 5, sh(p.main, 0.06)); // sleeves
+  plate(ctx, [[-5.4, -2], [5.4, -2], [5, 0.4], [-5, 0.4]], p.trim);
+  glowCircle(ctx, 0, -5, 5, p.glow, 0.35);
+  heroFace(ctx, 0, -13, 5, p, p.glow);
+  plate(ctx, [[-5.6, -12.6], [0, -18.6], [5.6, -12.6], [4.2, -9.4], [-4.2, -9.4]], p.main); // cowl
+  glowCircle(ctx, -1.7, -13, 1.6, p.trim, 0.7); glowCircle(ctx, 1.9, -13, 1.6, p.trim, 0.7);
+  ctx.save(); ctx.translate(0, -19 + Math.sin(t * 2) * 1); // void-halo
+  ctx.strokeStyle = p.glow; ctx.lineWidth = 1.2; ctx.globalAlpha = 0.7;
+  ctx.beginPath(); ctx.ellipse(0, 0, 8, 2.4, 0, 0, Math.PI * 2); ctx.stroke();
+  for (let i = 0; i < 5; i++) { const a2 = t * 1.5 + i * 1.256; ctx.fillStyle = p.trim; circle(ctx, Math.cos(a2) * 8, Math.sin(a2) * 2.4, 0.9); ctx.fill(); }
+  ctx.globalAlpha = 1; ctx.restore();
+  const oy = -6 + Math.sin(t * 3) * 2.2; // orb of un-space
+  glowCircle(ctx, 10 + l * 4, oy, 10, p.glow, 0.9);
+  ctx.fillStyle = '#0c0a18'; circle(ctx, 10 + l * 4, oy, 3.4); ctx.fill();
+  glowCircle(ctx, 10 + l * 4, oy, 2.2, p.trim, 0.8);
+}
+
+// ---- Morrigan — verdant witch: leaf-cloak, antlers, vines, living staff
+function paintMorrigan(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  const w = Math.sin(t * 2.4) * 2.4;
+  plate(ctx, [[-2, -8], [-11 - w, 4], [-13 - w, 17], [-8 - w, 15], [-9 - w, 18], [-4, 9], [-1, 8]], sh(p.main, -0.15)); // cloak
+  plate(ctx, [[-8, 14], [-5, -7], [5, -7], [8, 14]], p.main); // robe
+  plate(ctx, [[-8, 14], [-3, 7], [3, 7], [8, 14]], sh(p.main, -0.3));
+  plate(ctx, [[-5, -2], [5, -2], [4.6, 0.4], [-4.6, 0.4]], p.trim);
+  ctx.strokeStyle = sh(p.glow, -0.1); ctx.lineWidth = 1.2; // vines
+  ctx.beginPath(); ctx.moveTo(-3, 12); ctx.quadraticCurveTo(-5, 4, -2, -4); ctx.moveTo(3, 11); ctx.quadraticCurveTo(5, 3, 2, -5); ctx.stroke();
+  for (const f of [[-2, -4], [2, -5], [-4, 6], [4, 4]]) { blob(ctx, f[0], f[1], 1.4, 1.4, p.trim); ctx.fillStyle = p.glow; circle(ctx, f[0], f[1], 0.5); ctx.fill(); }
+  blob(ctx, -7, -3, 3, 5, sh(p.main, 0.08)); blob(ctx, 7, -3, 3, 5, sh(p.main, 0.08));
+  glowCircle(ctx, 0, -5, 5, p.glow, 0.3);
+  heroFace(ctx, 0, -13, 5, p, p.glow);
+  for (const s of [-1, 1]) { // antlers
+    ctx.strokeStyle = OUTLINE; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(3.4 * s, -15.6); ctx.quadraticCurveTo(7 * s, -21, 5.6 * s, -25); ctx.stroke();
+    ctx.strokeStyle = '#7a5d3a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(3.4 * s, -15.6); ctx.quadraticCurveTo(7 * s, -21, 5.6 * s, -25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(6 * s, -20); ctx.lineTo(8.4 * s, -22.4); ctx.moveTo(5.6 * s, -24); ctx.lineTo(7.6 * s, -25.4); ctx.stroke();
+  }
+  ctx.save(); ctx.translate(9 + l * 3, 0); // living staff
+  limb(ctx, 0, 14, -0.6, -16, 2.6, '#5a4a30');
+  const bl = 3.6 + Math.sin(t * 5) * 0.8;
+  glowCircle(ctx, -0.8, -17.5, bl * 2.4, p.glow, 0.8);
+  for (let i = 0; i < 6; i++) { const a2 = t * 2 + (i * Math.PI * 2) / 6; blob(ctx, -0.8 + Math.cos(a2) * bl, -17.5 + Math.sin(a2) * bl, 1.5, 2.4, p.trim, a2); }
+  blob(ctx, -0.8, -17.5, 1.8, 1.8, sh(p.glow, 0.2));
+  ctx.restore();
+}
+
+// ---- Seraphine — dawn cantor: light-wings, vestments, halo, swinging censer
+function paintSeraphine(ctx: Ctx, p: Pal, t: number, l: number, _G: unknown, _h: HeroState) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3; // wings of light
+  const wf = Math.sin(t * 3) * 2;
+  for (const s of [-1, 1]) plate(ctx, [[-2 * s, -8], [-12 * s, -16 - wf], [-15 * s, -6], [-9 * s, -3], [-3 * s, -4]], p.glow);
+  ctx.restore();
+  plate(ctx, [[-8, 15], [-5, -7], [5, -7], [8, 15]], p.main); // vestments
+  plate(ctx, [[-8, 15], [-3, 8], [3, 8], [8, 15]], sh(p.main, -0.22));
+  plate(ctx, [[-8, 15], [-5.5, 15], [-4.5, 9], [-7, 9]], sh(p.main, 0.12));
+  plate(ctx, [[8, 15], [5.5, 15], [4.5, 9], [7, 9]], sh(p.main, 0.12));
+  plate(ctx, [[-2.4, -7], [2.4, -7], [2, 14], [-2, 14]], p.trim); // gold stole
+  ctx.fillStyle = sh(p.trim, -0.15); for (const cy of [0, 5, 10]) ctx.fillRect(-2, cy, 4, 0.8);
+  blob(ctx, -7, -3, 3, 5, sh(p.main, 0.1)); blob(ctx, 7, -3, 3, 5, sh(p.main, 0.1));
+  plate(ctx, [[-6, -8], [6, -8], [5.4, -4], [-5.4, -4]], sh(p.main, 0.08)); // collar
+  glowCircle(ctx, 0, -6, 5, p.glow, 0.35);
+  glowCircle(ctx, 0, -15, 11, p.glow, 0.45); // halo glow
+  heroFace(ctx, 0, -13, 5, p);
+  ctx.strokeStyle = p.trim; ctx.lineWidth = 1.6; circle(ctx, 0, -16.5, 7.2); ctx.stroke();
+  ctx.strokeStyle = sh(p.glow, 0.3); ctx.lineWidth = 0.8; circle(ctx, 0, -16.5, 7.2); ctx.stroke();
+  const sw = Math.sin(t * 3.2) * 0.5 + l; // censer
+  ctx.save(); ctx.translate(10 + l * 3, -7); ctx.rotate(sw * 0.5);
+  ctx.strokeStyle = '#c9a84a'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 11); ctx.stroke();
+  blob(ctx, 0, 14, 4, 4.6, '#c9a84a');
+  ctx.fillStyle = OUTLINE; for (const hy of [12.4, 15.6]) ctx.fillRect(-3, hy, 6, 1);
+  glowCircle(ctx, 0, 14.5, 8, p.glow, 0.6);
+  ctx.restore();
+}
+
+const HERO_PAINTERS: Record<string, HeroPainter> = {
+  baldric: paintBaldric as HeroPainter, gorvana: paintGorvana as HeroPainter,
+  thrainn: paintThrainn as HeroPainter, joruun: paintJoruun as HeroPainter,
+  tarvek: paintTarvek as HeroPainter, sylri: paintSylri as HeroPainter,
+  vyrel: paintVyrel as HeroPainter, korrigan: paintKorrigan as HeroPainter,
+  maelis: paintMaelis as HeroPainter, morrigan: paintMorrigan as HeroPainter,
+  seraphine: paintSeraphine as HeroPainter,
+};
+
+// (headgear is now drawn inline by each champion's bespoke painter above)
 
 export function paintHero(ctx: Ctx, h: HeroState, t: number, g?: GameState) {
   const def = HERO_BY_ID[h.defId];
@@ -677,100 +873,8 @@ export function paintHero(ctx: Ctx, h: HeroState, t: number, g?: GameState) {
     ctx.restore();
   }
 
-  const weapon = def.weapon;
-  const giant = h.defId === 'joruun';
-  const robe = weapon === 'orb' || weapon === 'staff' || weapon === 'censer';
-  const hover = h.defId === 'maelis';
-  const bulk = giant ? 1.32 : 1;
-
-  // cape / mantle behind everything (warriors, giants, the witch)
-  if (!robe || h.defId === 'morrigan') {
-    const capeWave = Math.sin(t * 3) * 2.6;
-    plate(ctx, [[-5 * bulk, -9], [(-14 - capeWave) * bulk, 5], [(-11 - capeWave * 0.6) * bulk, 15], [-3, 10]], sh(p.trim, -0.3));
-  }
-
-  // ---- lower body
-  if (hover) {
-    const wisp = Math.sin(t * 4) * 3;
-    plate(ctx, [[-6, 4], [6, 4], [3 + wisp, 18], [0, 22], [-3 + wisp, 18]], sh(p.main, -0.2));
-    glowCircle(ctx, 0, 16, 12, p.glow, 0.4);
-  } else if (giant) {
-    limb(ctx, -5, 7, -6 + G.leg * 0.4, 17, 5.4, sh(p.skin, -0.2));
-    limb(ctx, 5, 7, 6 - G.leg * 0.4, 17, 5.4, sh(p.skin, -0.2));
-    plate(ctx, [[-9, 15], [-3, 15], [-4, 21], [-9, 21]], sh(p.main, -0.1)); // greaves
-    plate(ctx, [[9, 15], [3, 15], [4, 21], [9, 21]], sh(p.main, -0.1));
-  } else {
-    limb(ctx, -3, 6, -4, 15, 3.6, sh(p.main, -0.35));
-    limb(ctx, 3, 6, 4, 15, 3.6, sh(p.main, -0.35));
-    blob(ctx, -4, 15.6, 3, 2, sh(p.main, -0.5)); // boots
-    blob(ctx, 4, 15.6, 3, 2, sh(p.main, -0.5));
-    if (!robe) {
-      // tassets — a skirt of plates
-      plate(ctx, [[-6.5, 4], [-1, 4], [-1.5, 11], [-7, 10]], sh(p.main, -0.12));
-      plate(ctx, [[6.5, 4], [1, 4], [1.5, 11], [7, 10]], sh(p.main, -0.12));
-      plate(ctx, [[-1.6, 4], [1.6, 4], [1.6, 12], [-1.6, 12]], sh(p.main, -0.05));
-    }
-  }
-
-  // ---- torso
-  if (giant) {
-    plate(ctx, [[-10, -9], [10, -9], [8.5, 8], [-8.5, 8]], p.skin); // bare chest
-    ctx.strokeStyle = sh(p.skin, -0.3); ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(-7, -3); ctx.lineTo(7, -3); ctx.moveTo(0, -8); ctx.lineTo(0, 6); ctx.stroke();
-    // crackling storm tattoos
-    ctx.strokeStyle = p.glow; ctx.lineWidth = 1.3; ctx.globalAlpha = 0.5 + Math.sin(t * 6) * 0.2;
-    ctx.beginPath(); ctx.moveTo(-6, -6); ctx.lineTo(-3, -1); ctx.lineTo(-5, 3); ctx.moveTo(6, -5); ctx.lineTo(3, 0); ctx.lineTo(5, 4); ctx.stroke();
-    ctx.globalAlpha = 1;
-    plate(ctx, [[-10, 6], [10, 6], [9, 12], [-9, 12]], p.main); // loincloth
-    plate(ctx, [[-10, 6], [10, 6], [9.5, 8.4], [-9.5, 8.4]], p.trim); // belt
-    blob(ctx, -10.5, -8, 5, 4.2, sh(p.main, 0.15)); // huge pauldrons
-    blob(ctx, 10.5, -8, 5, 4.2, sh(p.main, 0.15));
-  } else if (robe) {
-    plate(ctx, [[-9, 14], [-5.4, -8], [5.4, -8], [9, 14]], p.main); // flowing robe
-    plate(ctx, [[-9, 14], [-3, 7], [3, 7], [9, 14]], sh(p.main, -0.32)); // hem shadow
-    plate(ctx, [[-9, 14], [-6, 14], [-5, 9], [-7.5, 9]], sh(p.main, 0.1)); // hem folds
-    plate(ctx, [[9, 14], [6, 14], [5, 9], [7.5, 9]], sh(p.main, 0.1));
-    blob(ctx, -7.5, -3, 3, 5, sh(p.main, 0.06)); // sleeves
-    blob(ctx, 7.5, -3, 3, 5, sh(p.main, 0.06));
-    plate(ctx, [[-5.4, -2], [5.4, -2], [5, 0.6], [-5, 0.6]], p.trim); // sash
-    glowCircle(ctx, 0, -6, 6, p.glow, 0.3); // rune-collar
-  } else {
-    plate(ctx, [[-7.5, -8.5], [7.5, -8.5], [6.6, 7], [-6.6, 7]], p.main); // cuirass
-    plate(ctx, [[-7.5, -8.5], [0, -6], [7.5, -8.5], [0, 0]], sh(p.main, 0.12)); // breast bevel
-    plate(ctx, [[-6.8, -1], [6.8, -1], [6.3, 1.8], [-6.3, 1.8]], p.trim); // belt
-    blob(ctx, 0, 0.4, 1.8, 1.8, sh(p.trim, 0.35)); // buckle
-    ctx.fillStyle = sh(p.trim, 0.3); // chest emblem
-    if (h.team === 0) { circle(ctx, 0, -4.5, 2); ctx.fill(); }
-    else { ctx.beginPath(); ctx.arc(0, -4.5, 2.2, 0.5, Math.PI * 2 - 0.5); ctx.fill(); }
-    blob(ctx, -8, -8, 4, 3.2, sh(p.main, 0.16)); // pauldrons
-    blob(ctx, 8, -8, 4, 3.2, sh(p.main, 0.16));
-    glint(ctx, -3.5, -6.5, 5, -0.5, 0.35);
-    if (h.defId === 'sylri') { // quiver of glowing arrows
-      plate(ctx, [[5, -9], [8.5, -9], [7.5, 2], [4.5, 2]], '#5a4a30');
-      for (const qx of [5.6, 7, 8]) limb(ctx, qx, -9, qx + 0.6, -13, 1, p.glow);
-    }
-  }
-
-  // gorvana's restless tail
-  if (h.defId === 'gorvana') {
-    const tw = Math.sin(t * 5) * 5;
-    limb(ctx, -6, 8, -20, 4 + tw, 3.4, p.skin);
-    plate(ctx, [[-20, 4 + tw], [-24, 1 + tw], [-20, 8 + tw]], p.trim); // spade tip
-  }
-
-  // ---- head (giants sit higher)
-  const hy = giant ? -15 : -13;
-  const hr = giant ? 6 : 5.4;
-  blob(ctx, 0, hy, hr, hr * 0.92, p.skin);
-  ctx.fillStyle = p.hair;
-  ctx.beginPath(); ctx.arc(0, hy - 1.4, hr, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
-  ctx.fillStyle = '#14101f';
-  ctx.fillRect(1.2, hy - 0.6, 1.6, 1.6); ctx.fillRect(-2.8, hy - 0.6, 1.6, 1.6); // eyes
-  ctx.strokeStyle = sh(p.skin, -0.3); ctx.lineWidth = 0.8;
-  ctx.beginPath(); ctx.moveTo(-0.5, hy + 0.6); ctx.lineTo(-0.5, hy + 2.4); ctx.stroke(); // nose
-  ctx.save(); ctx.translate(0, giant ? -2 : 0); paintHeadgear(ctx, h.defId, p, t); ctx.restore();
-
-  paintWeapon(ctx, def.weapon, p, t, lunge);
+  // each champion is hand-painted, head to heel, by its own routine
+  (HERO_PAINTERS[h.defId] ?? HERO_PAINTERS.baldric)(ctx, p, t, lunge, G, h);
 
   // channel wings (wyrmfire) / rat-call (thousandteeth)
   if (channeling) {
@@ -893,22 +997,12 @@ export function heroPortraitCanvas(heroId: string, size = 64): HTMLCanvasElement
   rg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = rg;
   ctx.fillRect(0, 0, size, size);
-  // bust
+  // the champion themselves, full-length — the real in-game sprite
   ctx.save();
-  ctx.translate(size / 2, size * 0.74);
-  ctx.scale(size / 46, size / 46);
-  plate(ctx, [[-13, 12], [-8, -6], [8, -6], [13, 12]], p.main);
-  blob(ctx, -8.4, -5, 4, 3.4, sh(p.main, 0.12));
-  blob(ctx, 8.4, -5, 4, 3.4, sh(p.main, 0.12));
-  blob(ctx, 0, -12, 6.4, 6, p.skin);
-  ctx.fillStyle = p.hair;
-  ctx.beginPath(); ctx.arc(0, -13.6, 6.4, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
-  ctx.fillStyle = '#14101f';
-  ctx.fillRect(1.4, -12.4, 2, 2); ctx.fillRect(-3.4, -12.4, 2, 2);
-  ctx.save();
-  ctx.scale(1.18, 1.18);
-  paintHeadgear(ctx, heroId, p, 1);
-  ctx.restore();
+  ctx.translate(size / 2, size * 0.6);
+  ctx.scale(size / 96, size / 96);
+  const stub = { defId: heroId, team: 0, facing: 1, buffs: [], channel: null, attackAnimT: -999, d: { scale: 1 } } as unknown as HeroState;
+  paintHero(ctx, stub, 0.6);
   ctx.restore();
   ctx.strokeStyle = p.glow;
   ctx.lineWidth = 2;
