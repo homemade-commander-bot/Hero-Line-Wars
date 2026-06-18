@@ -212,6 +212,12 @@ export function newGame(opts: NewGameOpts): GameState {
     nextClashAt: C.CLASH_FIRST,
     clashScore: [0, 0],
     clashNum: 0,
+    bossPhase: 'none',
+    bossUntil: 0,
+    nextBossAt: C.BOSS_FIRST,
+    bossNum: 0,
+    bossLane: -1,
+    bossId: -1,
     nextIncomeAt: C.INCOME_PERIOD,
     twilightLevel: 0,
     nextTwilightAt: C.TWILIGHT_AT,
@@ -337,6 +343,8 @@ export function applySlow(u: UnitState, pct: number, dur: number, t: number) {
 function killUnit(g: GameState, u: UnitState, killerTeam: TeamId, noBounty: boolean, killerHero?: HeroState, killerPlayerId?: number, bountyMult = 1) {
   const def = UNIT_BY_ID[u.defId];
   const defTeam = g.teams[u.lane];
+  // The Siege boss has its own death: scaled bounty, no horde recycling
+  if (def.special === 'boss') { slayBoss(g, u, defTeam, killerHero, killerPlayerId); return; }
   // resolve the earner: the killing hero's owner, else explicit, else a random defender
   let earner: PlayerState;
   if (killerHero && killerHero.team === u.lane) earner = playerById(g, killerHero.player);
@@ -1669,6 +1677,38 @@ function updateUnits(g: GameState, dt: number) {
         emit(g, { t: 'impact', pos: { ...u.pos }, r: 420, theme: { c1: '#ff4d4d', c2: '#13101a' }, kind: 'roar' });
       }
     }
+    if (def.special === 'boss') {
+      // periodic earth-shattering slam: AoE damage + brief stun
+      if (t >= u.specialReadyAt) {
+        const hv = nearestHero(g, u.lane, u.pos);
+        const heroNear = hv && dist(hv.pos, u.pos) < C.BOSS_SLAM_R;
+        const summonNear = g.summons.some(s => s.owner === u.lane && dist(s.pos, u.pos) < C.BOSS_SLAM_R);
+        if (heroNear || summonNear) {
+          u.specialReadyAt = t + C.BOSS_SLAM_CD;
+          emit(g, { t: 'impact', pos: { ...u.pos }, r: C.BOSS_SLAM_R, theme: { c1: '#ff7b2e', c2: '#140e16' }, kind: 'slam' });
+          for (const p of defTeam.players) {
+            if (!p.hero.dead && dist(p.hero.pos, u.pos) < C.BOSS_SLAM_R) {
+              dmgHero(g, p.hero, C.BOSS_SLAM_DMG, 'magic', u);
+              p.hero.buffs.push({ id: 'bossstun', until: t + C.BOSS_SLAM_STUN, stun: true, theme: 'stun' });
+            }
+          }
+          for (const s of g.summons) {
+            if (s.owner === u.lane && dist(s.pos, u.pos) < C.BOSS_SLAM_R) dmgSummon(g, s, C.BOSS_SLAM_DMG, u.owner);
+          }
+        }
+      }
+      // a world-shaking roar at half health routs the defenders, once
+      if (!u.roared && u.hp < u.maxHp * 0.5) {
+        u.roared = true;
+        for (const p of defTeam.players) {
+          if (!p.hero.dead && dist(p.hero.pos, u.pos) < C.BOSS_ROAR_R) {
+            p.hero.buffs.push({ id: 'bossfear', until: t + 1.1, fear: true, theme: 'fear' });
+            p.hero.channel = null;
+          }
+        }
+        emit(g, { t: 'impact', pos: { ...u.pos }, r: C.BOSS_ROAR_R, theme: { c1: '#ff7b2e', c2: '#140e16' }, kind: 'roar' });
+      }
+    }
 
     if (u.state === 'march') {
       let engaged = false;
@@ -1758,6 +1798,8 @@ function updateUnits(g: GameState, dt: number) {
 
       if (u.pos.y >= C.CASTLE_Y - 22) {
         u.pos.y = C.CASTLE_Y - 22;
+        // the boss doesn't camp the gate — it breaches the wall once and rampages off
+        if (def.special === 'boss') { bossBreaches(g, u, defTeam); continue; }
         u.state = 'castle';
         // every defender feels the leak
         defTeam.players[0].stats.leaks++;
@@ -2443,12 +2485,116 @@ function updateClash(g: GameState) {
   if (down0 || down1) endClash(g);
 }
 
+// -------------------------------------------------------------------- the siege
+
+/** The beast is drawn to the mightiest keep: the lane with the most castle hp. */
+function bossTargetLane(g: GameState): TeamId {
+  const r0 = g.teams[0].castleHp / g.teams[0].castleMaxHp;
+  const r1 = g.teams[1].castleHp / g.teams[1].castleMaxHp;
+  if (r0 > r1 + 0.01) return 0;
+  if (r1 > r0 + 0.01) return 1;
+  return (g.bossNum % 2) as TeamId; // dead heat — alternate so neither is singled out
+}
+
+function spawnBoss(g: GameState) {
+  const lane = (g.bossLane >= 0 ? g.bossLane : bossTargetLane(g)) as TeamId;
+  const owner = (1 - lane) as TeamId; // spawnUnit derives lane = 1 - owner
+  const pos = { x: laneCenterX(lane), y: C.SPAWN_Y + 8 };
+  const u = spawnUnit(g, 'titan', owner, pos);
+  const defenders = g.teams[lane].players.length;
+  const hp = Math.round(
+    (C.BOSS_HP_BASE + C.BOSS_HP_PER_MIN * (g.t / 60))
+    * (1 + C.BOSS_HP_PER_ALLY * (defenders - 1))
+    * (1 + C.BOSS_HP_PER_NUM * g.bossNum),
+  );
+  u.hp = u.maxHp = hp;
+  g.bossId = u.id;
+  g.bossPhase = 'active';
+  g.bossNum++;
+  emit(g, { t: 'bossSpawn', lane, pos: { ...pos }, num: g.bossNum });
+}
+
+/** Boss death: a fat, clock-scaled bounty + sustain reward; schedule the next. */
+function slayBoss(g: GameState, u: UnitState, defTeam: TeamState, killerHero?: HeroState, killerPlayerId?: number) {
+  let earner: PlayerState;
+  if (killerHero && killerHero.team === defTeam.id && !killerHero.dead) earner = playerById(g, killerHero.player);
+  else if (killerPlayerId !== undefined && playerById(g, killerPlayerId).team === defTeam.id) earner = playerById(g, killerPlayerId);
+  else earner = defTeam.players[Math.floor(g.rng() * defTeam.players.length)];
+
+  const gold = Math.round(C.BOSS_BOUNTY_BASE + C.BOSS_BOUNTY_PER_MIN * (g.t / 60));
+  earner.gold += gold;
+  earner.stats.goldEarned += gold;
+  earner.stats.kills += 1;
+  const xp = gold * C.XP_PCT;
+  for (const p of defTeam.players) {
+    if (p.hero.dead) continue;
+    addXp(g, p.hero, p === earner ? xp : xp * 0.6); // the whole team shares the spoils
+  }
+  // the slayer's reward is sustain, not raw power — the beast hunts the leader,
+  // so a damage spike here would only feed a snowball.
+  if (!earner.hero.dead) {
+    earner.hero.buffs.push({
+      id: 'bossvigor', until: g.t + C.BOSS_VIGOR_DUR,
+      lifesteal: C.BOSS_VIGOR_LIFESTEAL, hot: C.BOSS_VIGOR_REGEN, theme: 'bossvigor',
+    });
+    earner.hero.d = computeDerived(earner.hero);
+  }
+  emit(g, { t: 'death', pos: { ...u.pos }, defId: u.defId, tier: 3, lane: u.lane });
+  emit(g, { t: 'gold', team: defTeam.id, amount: gold, pos: { ...u.pos }, player: earner.id });
+  emit(g, { t: 'bossSlain', team: defTeam.id, pos: { ...u.pos }, gold });
+  g.bossPhase = 'none';
+  g.bossId = -1;
+  g.bossLane = -1;
+  g.nextBossAt = g.t + C.BOSS_PERIOD;
+}
+
+/** The boss reached the wall undefended: a heavy but bounded hit, then it leaves. */
+function bossBreaches(g: GameState, u: UnitState, defTeam: TeamState) {
+  const dmg = Math.round(defTeam.castleMaxHp * C.BOSS_LEAK_PCT);
+  const attacker = playerById(g, ownerPlayerOf(g, u));
+  dmgCastle(g, defTeam, dmg, attacker);
+  defTeam.players[0].stats.leaks++;
+  u.hp = -1e9; // despawn without paying a bounty — the defenders failed
+  emit(g, { t: 'bossBreach', team: defTeam.id, pos: { ...u.pos }, amount: dmg });
+  g.bossPhase = 'none';
+  g.bossId = -1;
+  g.bossLane = -1;
+  g.nextBossAt = g.t + C.BOSS_PERIOD;
+}
+
+function updateBoss(g: GameState) {
+  if (g.clashPhase !== 'none') return; // the arena duel takes precedence — no overlap
+  const t = g.t;
+  if (g.bossPhase === 'none') {
+    if (t >= g.nextBossAt) {
+      g.bossPhase = 'warn';
+      g.bossUntil = t + C.BOSS_WARN;
+      g.bossLane = bossTargetLane(g);
+      emit(g, { t: 'bossWarn', lane: g.bossLane as TeamId, secs: C.BOSS_WARN });
+    }
+    return;
+  }
+  if (g.bossPhase === 'warn') {
+    if (t >= g.bossUntil) spawnBoss(g);
+    return;
+  }
+  // active: the boss lives in g.units (slayBoss handles its death). Safety net in
+  // case it ever leaves play without a kill — don't let the timer wedge.
+  if (!g.units.some(u => u.id === g.bossId && u.hp > 0)) {
+    g.bossPhase = 'none';
+    g.bossId = -1;
+    g.bossLane = -1;
+    g.nextBossAt = t + C.BOSS_PERIOD;
+  }
+}
+
 // ---------------------------------------------------------------------- step
 
 export function step(g: GameState, dt: number) {
   if (g.over) return;
   g.t += dt;
   updateClash(g);
+  updateBoss(g);
   updateEconomy(g, dt);
   const clash = g.clashPhase === 'active';
   if (!clash) {

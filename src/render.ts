@@ -391,6 +391,53 @@ export function paintUnit(ctx: Ctx, defId: string, t: number, scale = 1, walking
       blob(ctx, 17, 2 - G.arm * 0.5, 5.4, 6.4, a);
       break;
     }
+    case 'titan': {
+      const pulse = 1 + Math.sin(t * 2.2) * 0.03;
+      ctx.scale(pulse, pulse);
+      glowCircle(ctx, 0, -4, 40, c, 0.2);
+      // mountainous legs + clawed feet
+      limb(ctx, -9, 11, -11 + G.leg * 0.35, 26, 9, sh(b, -0.04));
+      limb(ctx, 9, 11, 11 - G.leg * 0.35, 26, 9, sh(b, -0.04));
+      for (const fx of [-11, 11]) plate(ctx, [[fx - 6, 24], [fx + 6, 24], [fx + 4.5, 31], [fx - 4.5, 31]], sh(b, -0.18));
+      // hunched slab of a torso
+      blob(ctx, 0, 0, 19, 15.5, b);
+      // jagged back ridge
+      for (const [sx, sy, hh] of [[-3, -15, 8], [3, -13, 10], [9, -8, 8], [14, -1, 6]]) {
+        plate(ctx, [[sx, sy], [sx + 4, sy - hh], [sx + 6, sy]], sh(b, 0.06));
+      }
+      // molten fault-lines across the chest
+      ctx.strokeStyle = c; ctx.lineWidth = 2.2; ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(-11, -4); ctx.lineTo(-3, 3); ctx.lineTo(-8, 12);
+      ctx.moveTo(9, -6); ctx.lineTo(2, 2); ctx.lineTo(7, 11);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // brow block sunk between the shoulders
+      plate(ctx, [[-10, -21], [10, -21], [8, -9], [-8, -9]], a);
+      // burning eyes
+      ctx.fillStyle = c; ctx.fillRect(-6.5, -18, 4.2, 3.6); ctx.fillRect(2.3, -18, 4.2, 3.6);
+      glowCircle(ctx, -4.4, -16, 5, c, 0.85); glowCircle(ctx, 4.4, -16, 5, c, 0.85);
+      // fanged maw
+      plate(ctx, [[-7, -10], [7, -10], [5, -4.5], [-5, -4.5]], sh(a, -0.32));
+      ctx.fillStyle = '#e8e4d8';
+      for (const mx of [-5, -2, 1, 4]) ctx.fillRect(mx, -10, 1.5, 3.2);
+      // great curved horns
+      ctx.lineWidth = 5.4; ctx.strokeStyle = OUTLINE;
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(9 * s, -20); ctx.quadraticCurveTo(25 * s, -27, 21 * s, -44); ctx.stroke(); }
+      ctx.lineWidth = 3; ctx.strokeStyle = sh(a, 0.18);
+      for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(9 * s, -20); ctx.quadraticCurveTo(25 * s, -27, 21 * s, -44); ctx.stroke(); }
+      // colossal arms + clawed fists
+      limb(ctx, -17, -3, -24, 7 + G.arm * 0.5, 7, sh(b, 0.02));
+      limb(ctx, 17, -3, 24, 7 - G.arm * 0.5, 7, sh(b, 0.02));
+      blob(ctx, -25, 9 + G.arm * 0.5, 6.6, 7.6, a);
+      blob(ctx, 25, 9 - G.arm * 0.5, 6.6, 7.6, a);
+      ctx.fillStyle = '#d8d2c4';
+      for (const s of [-1, 1]) for (const cx of [-3, 0, 3]) {
+        const fy = 9 + (s < 0 ? G.arm * 0.5 : -G.arm * 0.5);
+        plate(ctx, [[s * 25 + cx - 0.8, fy + 5], [s * 25 + cx, fy + 11], [s * 25 + cx + 1.6, fy + 5]], '#d8d2c4');
+      }
+      break;
+    }
     // ---- wildlife
     case 'gloomrat': {
       blob(ctx, 0, 0, 7, 4.2, a, -0.05); // body
@@ -1709,6 +1756,33 @@ export class Renderer {
             this.showBanner('THE CLASH ENDS', 'A bloody draw — back to the lanes', '#cfc4a8', 2.4);
           }
           break;
+        case 'bossWarn':
+          this.showBanner('THE WALL-EATER STIRS', `Korghul rises against ${e.lane === 0 ? 'Dawnhold' : 'Duskreach'} — bring it down!`, '#ff7b2e', 3);
+          break;
+        case 'bossSpawn': {
+          this.flashScreen('#ff7b2e', 0.28);
+          this.shakeIt(10);
+          this.pushFx('shock', e.pos.x, e.pos.y, '#ff7b2e', '#140e16', { r: 240, maxLife: 0.6 });
+          this.burst(e.pos, 26, '#ff7b2e', 'ember', 4);
+          this.burst(e.pos, 16, '#9aa7b8', 'smoke', 3);
+          break;
+        }
+        case 'bossSlain':
+          this.flashScreen(e.team === playerTeam ? '#ffd86b' : '#ff7b2e', 0.34);
+          this.shakeIt(11);
+          this.burst(e.pos, 34, '#ff7b2e', 'ember', 4.4);
+          this.burst(e.pos, 22, '#2b2030', 'smoke', 3.4);
+          this.ring(e.pos, '#ffd86b', 6);
+          this.float({ x: e.pos.x, y: e.pos.y - 40 }, 'WALL-EATER SLAIN', '#ffd86b', 19, true);
+          this.showBanner('THE WALL-EATER FALLS', `${e.team === 0 ? 'Dawnhold' : 'Duskreach'} holds the line — +${e.gold}g to the slayer`, '#ffd86b', 2.8);
+          break;
+        case 'bossBreach':
+          this.flashScreen('#ff3b2b', 0.4);
+          this.shakeIt(12);
+          this.burst(e.pos, 24, '#ff5e2b', 'ember', 4);
+          this.float({ x: e.pos.x, y: e.pos.y - 30 }, `BREACH! -${e.amount}`, '#ff5e6b', 19, true);
+          this.showBanner('THE WALL IS BREACHED', `${e.team === 0 ? 'Dawnhold' : 'Duskreach'} let the beast through`, '#ff5e6b', 2.6);
+          break;
         case 'proc': {
           if (e.itemId === 'stormfang' && e.targets) {
             for (let i = 0; i + 1 < e.targets.length; i++) {
@@ -1805,6 +1879,7 @@ export class Renderer {
     this.drawParticles(ctx, dt);
     this.drawBeams(ctx, dt);
     this.drawFloaters(ctx, dt);
+    if (g.bossPhase !== 'none') this.drawSiege(ctx, g, t);
 
     if (this.flash > 0.005) {
       ctx.globalAlpha = this.flash;
@@ -1949,6 +2024,52 @@ export class Renderer {
       }
       ctx.restore();
     }
+  }
+
+  drawSiege(ctx: Ctx, g: GameState, t: number) {
+    const lane = g.bossLane;
+    if (lane < 0) return;
+    const cx = laneCenterX(lane);
+    if (g.bossPhase === 'warn') {
+      const sx = cx, sy = C.SPAWN_Y + 8;
+      const frac = Math.max(0, Math.min(1, 1 - (g.bossUntil - g.t) / C.BOSS_WARN));
+      const r = 18 + frac * 50;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const grd = ctx.createRadialGradient(sx, sy, 2, sx, sy, r);
+      grd.addColorStop(0, `rgba(255,190,110,${0.5 + Math.sin(t * 8) * 0.15})`);
+      grd.addColorStop(0.5, 'rgba(255,90,30,0.38)');
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      circle(ctx, sx, sy, r); ctx.fill();
+      ctx.strokeStyle = `rgba(255,120,40,${0.55 + Math.sin(t * 10) * 0.2})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 7; i++) {
+        const a = (i / 7) * Math.PI * 2 + t * 0.25;
+        ctx.beginPath(); ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + Math.cos(a) * r * 0.92, sy + Math.sin(a) * r * 0.5);
+        ctx.stroke();
+      }
+      ctx.restore();
+      const secs = Math.ceil(g.bossUntil - g.t);
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.font = '900 40px Cinzel, Georgia, serif';
+      ctx.fillStyle = '#ff8c42';
+      ctx.shadowColor = '#ff5e2b'; ctx.shadowBlur = 18;
+      ctx.fillText(String(secs), sx, sy - 34);
+      ctx.restore();
+    }
+    // a pulsing warning over the keep the beast is marching on (warn + active)
+    const cp = castlePos(lane);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = 0.55 + Math.sin(t * 5) * 0.3;
+    ctx.fillStyle = '#ff5e2b';
+    ctx.font = '800 15px Cinzel, Georgia, serif';
+    ctx.shadowColor = '#000'; ctx.shadowBlur = 6;
+    ctx.fillText('⚠ KEEP UNDER SIEGE ⚠', cp.x, cp.y - 122);
+    ctx.restore();
   }
 
   drawMarkers(ctx: Ctx, dt: number, playerTeam: TeamId) {
@@ -2320,14 +2441,24 @@ export class Renderer {
 
   drawUnit(ctx: Ctx, u: UnitState, g: GameState, t: number) {
     const def = UNIT_BY_ID[u.defId];
+    const isBoss = def.special === 'boss';
     ctx.save();
     const air = g.t < u.airborneUntil;
     const lift = air ? -26 - Math.sin((u.airborneUntil - g.t) * 6) * 4 : 0;
     ctx.translate(u.pos.x, u.pos.y + lift);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(0, 12 - lift, def.tier >= 3 ? 15 : 9.4, def.tier >= 3 ? 5 : 3.4, 0, 0, Math.PI * 2);
+    ctx.ellipse(0, (isBoss ? 26 : 12) - lift, isBoss ? 30 : def.tier >= 3 ? 15 : 9.4, isBoss ? 9 : def.tier >= 3 ? 5 : 3.4, 0, 0, Math.PI * 2);
     ctx.fill();
+    if (isBoss) {
+      // a smoldering rune-ring of dread under the beast
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = `rgba(255,123,46,${0.35 + Math.sin(t * 4) * 0.12})`;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.ellipse(0, 26 - lift, 40 + Math.sin(t * 3) * 3, 12, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
     if (def.flying) ctx.translate(0, -16 + Math.sin(t * 2.4 + u.bob) * 4);
 
     const slowed = g.t < u.slowUntil;
@@ -2335,7 +2466,7 @@ export class Renderer {
     const confused = g.t < u.confuseUntil;
     const feared = g.t < u.fearUntil;
     const blinded = g.t < u.missUntil;
-    paintUnit(ctx, u.defId, t + u.bob, def.tier === 3 ? 1.35 : def.legendary ? 1.6 : 1.05, !stunned);
+    paintUnit(ctx, u.defId, t + u.bob, isBoss ? 2.7 : def.legendary ? 1.6 : def.tier === 3 ? 1.35 : 1.05, !stunned);
     if (slowed) {
       ctx.strokeStyle = 'rgba(140,210,255,0.8)';
       ctx.lineWidth = 1.4;
@@ -2377,8 +2508,17 @@ export class Renderer {
     if (u.dots.length > 0 && Math.random() < 0.25) {
       this.burst({ x: u.pos.x, y: u.pos.y - 8 }, 1, '#ff8c42', 'ember', 1.2);
     }
-    const w = def.tier >= 3 ? 30 : 20;
-    this.bar(ctx, -w / 2, def.legendary ? -44 : -29, w, 3.2, u.hp / u.maxHp, u.owner === 1 ? '#7db8ff' : '#ff7a5c');
+    if (isBoss) {
+      // a heavy health bar slung above the beast itself
+      this.bar(ctx, -38, -74, 76, 5.6, u.hp / u.maxHp, '#ff7b2e');
+      ctx.fillStyle = '#ffd9b0';
+      ctx.font = '700 11px Cinzel, Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('KORGHUL, THE WALL-EATER', 0, -80);
+    } else {
+      const w = def.tier >= 3 ? 30 : 20;
+      this.bar(ctx, -w / 2, def.legendary ? -44 : -29, w, 3.2, u.hp / u.maxHp, u.owner === 1 ? '#7db8ff' : '#ff7a5c');
+    }
     ctx.restore();
   }
 

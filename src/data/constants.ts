@@ -63,6 +63,30 @@ export const C = {
   CLASH_VICTOR_INCOME: 1.2, // +20% income while it lasts
   CLASH_VICTOR_DMG: 0.15, // +15% hero damage
 
+  // The Siege — a neutral boss is drawn to the mightiest keep. It marches the
+  // leading team's lane; that team must bring it down before it batters the
+  // gate. Slaying it pays a fat bounty. Failing to (it reaches the wall) hurts.
+  BOSS_FIRST: 240, // first siege ~4:00 (heroes have a few levels by now)
+  BOSS_PERIOD: 220, // a fresh beast every ~3:40 after the last resolves
+  BOSS_WARN: 7, // telegraph before it claws out of the ground
+  BOSS_HP_BASE: 2200, // tanky, but a fed hero can chew through it in the march
+  BOSS_HP_PER_MIN: 300, // grows with the game so it stays a real wall
+  BOSS_HP_PER_ALLY: 0.7, // 3v3: more defenders, tougher beast
+  BOSS_HP_PER_NUM: 0.16, // each successive siege is hardier
+  BOSS_DMG: 42, // per swing vs heroes/summons (it hits like a tier-3)
+  BOSS_SPEED: 34, // slow, deliberate, inexorable
+  BOSS_SLAM_DMG: 120, // periodic ground slam: AoE + stun
+  BOSS_SLAM_R: 175,
+  BOSS_SLAM_CD: 5.5,
+  BOSS_SLAM_STUN: 0.7,
+  BOSS_ROAR_R: 440, // one-time fear when it drops below half
+  BOSS_LEAK_PCT: 0.15, // if it reaches the wall: a bounded chunk of max castle hp, then it leaves
+  BOSS_BOUNTY_BASE: 220, // gold to the slayer
+  BOSS_BOUNTY_PER_MIN: 26, // scales with the clock
+  BOSS_VIGOR_DUR: 14, // slayer's reward buff (sustain, not raw power)
+  BOSS_VIGOR_LIFESTEAL: 0.3,
+  BOSS_VIGOR_REGEN: 18, // hp/s
+
   // forced endgame: each Twilight stack escalates until somebody falls
   TWILIGHT_AT: 35 * 60,
   TWILIGHT_PERIOD: 60,

@@ -180,7 +180,8 @@ export type UnitSpecial =
   | 'necro'    // raises skeletons from nearby allied deaths
   | 'siege'    // multiplied damage vs castle
   | 'wyvern'   // AoE acid spit at hero/summons
-  | 'avatar';  // boss: AoE slam + fear roar
+  | 'avatar'   // boss: AoE slam + fear roar
+  | 'boss';    // The Siege — neutral lane-invader that batters the besieged keep
 
 export interface UnitDef {
   id: string;
@@ -379,6 +380,10 @@ export type GameEvent =
   | { t: 'clashStart' }
   | { t: 'clashKO'; team: TeamId; pos: Vec; by: number }
   | { t: 'clashEnd'; winner: TeamId | -1 }
+  | { t: 'bossWarn'; lane: TeamId; secs: number }
+  | { t: 'bossSpawn'; lane: TeamId; pos: Vec; num: number }
+  | { t: 'bossSlain'; team: TeamId; pos: Vec; gold: number }
+  | { t: 'bossBreach'; team: TeamId; pos: Vec; amount: number }
   | { t: 'proc'; pos: Vec; itemId: string; targets?: Vec[] }
   | { t: 'win'; team: TeamId };
 
@@ -476,6 +481,13 @@ export interface GameState {
   nextClashAt: number;
   clashScore: [number, number]; // KOs scored by each team this clash
   clashNum: number;
+  // The Siege — a neutral boss periodically marches on the leading keep's lane
+  bossPhase: 'none' | 'warn' | 'active';
+  bossUntil: number; // end time of the warn countdown
+  nextBossAt: number;
+  bossNum: number;
+  bossLane: TeamId | -1; // the lane (team) currently besieged, -1 when idle
+  bossId: number; // unit id of the active boss, -1 when none
   nextIncomeAt: number;
   twilightLevel: number;
   nextTwilightAt: number;

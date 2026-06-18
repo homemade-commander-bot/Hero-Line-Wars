@@ -121,8 +121,22 @@ export const WILDLIFE: UnitDef[] = [
   },
 ];
 
+// ----------------------------------------------------------- The Siege
+// A neutral world-boss. Never sold in the barracks — the engine spawns it,
+// scales its health to the clock, and pays a fat bounty to whoever fells it.
+export const BOSSES: UnitDef[] = [
+  {
+    id: 'titan', name: 'Korghul, the Wall-Eater', tier: 3, legendary: true, neutral: true,
+    cost: 2400, income: 0, bounty: 220, // cost is only the AI's "how badly do I want this dead" weight
+    hp: 2600, dmg: 46, speed: 34, range: 72,
+    spellResist: 0.3, special: 'boss',
+    trait: 'A mountain that walks. Drawn to the mightiest keep; slams the earth, roars the bold into flight, and eats walls.',
+    pal: { a: '#3a2b3a', b: '#140e16', c: '#ff7b2e' },
+  },
+];
+
 export const UNIT_BY_ID: Record<string, UnitDef> =
-  Object.fromEntries([...UNITS, ...WILDLIFE].map(u => [u.id, u]));
+  Object.fromEntries([...UNITS, ...WILDLIFE, ...BOSSES].map(u => [u.id, u]));
 
 export function bounty(def: UnitDef, raised: boolean): number {
   if (def.neutral) return def.bounty ?? 10;

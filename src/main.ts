@@ -335,6 +335,10 @@ function playEventSfx(events: GameEvent[], humanTeam: TeamId, humanId: number) {
       case 'clashStart': sfx.ult(); break;
       case 'clashKO': sfx.heroDeath(); break;
       case 'clashEnd': if (e.winner === humanTeam) sfx.victory(); else if (e.winner >= 0) sfx.defeat(); break;
+      case 'bossWarn': sfx.horn(); break;
+      case 'bossSpawn': sfx.twilight(); break;
+      case 'bossSlain': sfx.bigDeath(); if (e.team === humanTeam) sfx.victory(); break;
+      case 'bossBreach': sfx.castleHit(); if (e.team === humanTeam) sfx.defeat(); break;
       case 'tower': if (e.team === humanTeam) sfx.forge(); break;
       case 'runeGet': if (e.player === humanId) { e.kind === 'bounty' ? sfx.income() : sfx.levelup(); } break;
       case 'forgeMastery': if (e.complete) sfx.victory(); break;

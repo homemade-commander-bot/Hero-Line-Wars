@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.9.0] — 2026-06-18
+
+**The Siege** — a neutral world-boss that hunts the strongest keep.
+
+### Added
+- **The Siege.** Every few minutes (first at ~4:00, then ~every 3:40) **Korghul, the Wall-Eater** — a colossal neutral beast — claws out of the ground at the top of a lane and marches on that team's gate. It's drawn to the **mightiest keep**: it always targets the team currently *ahead* on castle health, so being in front carries a price (an anti-snowball event in the spirit of Underdog's Favor and the Twilight).
+  - **Kill it, or pay the wall.** The besieged team must burst the boss down before it reaches the gate. Slay it and the killer pockets a fat, clock-scaled **bounty** (≈220g +26/min, shared as assist XP) plus a short **Slayer's Vigor** sustain buff (lifesteal + regen — deliberately *not* raw power, so winning the fight doesn't snowball the leader). Let it through and it **breaches the wall** for ~15% of max castle HP, then rampages off — heavy, but bounded; never an instant loss.
+  - **A real fight.** The beast scales its health to the clock, the appearance count, and the number of defenders (so a 3v3 wall is a genuine co-op burn). It hits like a tier-3, throws a periodic **earth-shattering slam** (AoE damage + stun), and at half health looses a **world-shaking roar** that routs nearby heroes into flight. Every hero ability, tower, and summon damages it normally — focus fire wins.
+  - **Presentation.** A molten warn-eruption with radiating cracks and a countdown at the spawn point, a **"⚠ KEEP UNDER SIEGE ⚠"** marker over the threatened castle, a hulking horned sprite with burning eyes, molten chest-cracks and clawed fists, a heavy health bar slung above it, a smoldering rune-ring at its feet, and full banners/flash/shake/stingers for the warning, the spawn, the slaying, and the breach.
+
+### Balance
+- Sim with sieges enabled: **0 timeouts** across 30 (1v1) + 16 (3v3) + 16 (warlord) matches. 1v1 median ~19.4 min (67% in the 15–45 window), 3v3 median ~23.2 min (100% in window), warlord median ~19.6 min (94%) — unchanged from the v0.8 baseline. Instrumented runs confirm ~4 sieges per game with defenders typically slaying 3 of 4; the bounded breach keeps a missed boss from ending the match on its own.
+
 ## [0.8.0] — 2026-06-14
 
 **The Clash** — a recurring team-vs-team arena event that interrupts the lane war.

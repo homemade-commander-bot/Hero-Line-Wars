@@ -149,6 +149,21 @@ Everyone arrives at full health behind a brief spawn shield, then it's a straigh
 - Every ability works in the arena (cones, novas, leaps, stuns, starfall, black holes,
   projectiles all retarget onto enemy heroes), and the AI fights with dedicated arena micro.
 
+## The Siege
+
+Every few minutes (first at ~4:00) **Korghul, the Wall-Eater** — a colossal neutral beast —
+claws out of the ground and marches a single lane's gate. It hunts the **mightiest keep**:
+it always targets whichever team is *ahead* on castle health, so leading carries a price.
+
+- **Kill it in time.** Burst the boss down before it reaches your wall — slaying it pays a fat,
+  time-scaled **bounty** plus a brief **Slayer's Vigor** (lifesteal + regen, not raw power, so it
+  doesn't snowball the leader). Every ability, tower and summon hurts it — focus fire wins.
+- **…or pay the wall.** Let it through and it **breaches your gate** for ~15% of max castle health,
+  then rampages off. Heavy, but bounded — never an instant loss.
+- It scales with the clock, the appearance count, and your team size (a 3v3 wall is a real co-op
+  burn). It throws an **earth-shattering slam** (AoE + stun) and a half-health **roar** that routs
+  the bold into flight.
+
 ## Comeback Mechanics
 
 Losing is not a death sentence — it's a discount:
